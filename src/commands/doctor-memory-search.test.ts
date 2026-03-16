@@ -5,6 +5,7 @@ import type { OpenClawConfig } from "../config/config.js";
 const note = vi.hoisted(() => vi.fn());
 const resolveDefaultAgentId = vi.hoisted(() => vi.fn(() => "agent-default"));
 const resolveAgentDir = vi.hoisted(() => vi.fn(() => "/tmp/agent-default"));
+const resolveLmstudioRuntimeApiKey = vi.hoisted(() => vi.fn());
 const resolveMemorySearchConfig = vi.hoisted(() => vi.fn());
 const resolveApiKeyForProvider = vi.hoisted(() => vi.fn());
 const resolveMemoryBackendConfig = vi.hoisted(() => vi.fn());
@@ -22,6 +23,10 @@ vi.mock("../agents/memory-search.js", () => ({
   resolveMemorySearchConfig,
 }));
 
+vi.mock("../agents/lmstudio-runtime.js", () => ({
+  resolveLmstudioRuntimeApiKey,
+}));
+
 vi.mock("../agents/model-auth.js", () => ({
   resolveApiKeyForProvider,
 }));
@@ -35,6 +40,18 @@ import { detectLegacyWorkspaceDirs } from "./doctor-workspace.js";
 
 describe("noteMemorySearchHealth", () => {
   const cfg = {} as OpenClawConfig;
+  const cfgWithLmstudioApiKeyAuth = {
+    models: {
+      providers: {
+        lmstudio: {
+          auth: "api-key",
+          baseUrl: "http://localhost:1234/v1",
+          api: "openai-completions",
+          models: [],
+        },
+      },
+    },
+  } as OpenClawConfig;
 
   async function expectNoWarningWithConfiguredRemoteApiKey(provider: string) {
     resolveMemorySearchConfig.mockReturnValue({
@@ -53,11 +70,15 @@ describe("noteMemorySearchHealth", () => {
     note.mockClear();
     resolveDefaultAgentId.mockClear();
     resolveAgentDir.mockClear();
+    resolveLmstudioRuntimeApiKey.mockReset();
     resolveMemorySearchConfig.mockReset();
     resolveApiKeyForProvider.mockReset();
     resolveApiKeyForProvider.mockRejectedValue(new Error("missing key"));
     resolveMemoryBackendConfig.mockReset();
-    resolveMemoryBackendConfig.mockReturnValue({ backend: "builtin", citations: "auto" });
+    resolveMemoryBackendConfig.mockReturnValue({
+      backend: "builtin",
+      citations: "auto",
+    });
   });
 
   it("does not warn when local provider is set with no explicit modelPath (default model fallback)", async () => {
@@ -80,7 +101,11 @@ describe("noteMemorySearchHealth", () => {
     });
 
     await noteMemorySearchHealth(cfg, {
-      gatewayMemoryProbe: { checked: true, ready: false, error: "node-llama-cpp not installed" },
+      gatewayMemoryProbe: {
+        checked: true,
+        ready: false,
+        error: "node-llama-cpp not installed",
+      },
     });
 
     expect(note).toHaveBeenCalledTimes(1);
@@ -211,6 +236,121 @@ describe("noteMemorySearchHealth", () => {
       agentDir: "/tmp/agent-default",
     });
     expect(note).not.toHaveBeenCalled();
+  });
+
+  it("does not warn when lmstudio is configured without provider auth and the gateway probe is not failing", async () => {
+    resolveMemorySearchConfig.mockReturnValue({
+      provider: "lmstudio",
+      local: {},
+      remote: {},
+    });
+
+    await noteMemorySearchHealth(cfg);
+
+    expect(resolveLmstudioRuntimeApiKey).not.toHaveBeenCalled();
+    expect(resolveApiKeyForProvider).not.toHaveBeenCalled();
+    expect(note).not.toHaveBeenCalled();
+  });
+
+  it("does not warn when lmstudio provider auth is resolved and the gateway probe is not failing", async () => {
+    resolveMemorySearchConfig.mockReturnValue({
+      provider: "lmstudio",
+      local: {},
+      remote: {},
+    });
+    resolveLmstudioRuntimeApiKey.mockResolvedValue("lmstudio-key");
+
+    await noteMemorySearchHealth(cfgWithLmstudioApiKeyAuth);
+
+    expect(resolveLmstudioRuntimeApiKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentDir: "/tmp/agent-default",
+        allowMissingAuth: true,
+        config: expect.objectContaining({
+          models: expect.objectContaining({
+            providers: expect.objectContaining({
+              lmstudio: expect.objectContaining({ auth: "api-key" }),
+            }),
+          }),
+        }),
+      }),
+    );
+    expect(note).not.toHaveBeenCalled();
+  });
+
+  it("warns when lmstudio auth mode is api-key and no auth resolves", async () => {
+    resolveMemorySearchConfig.mockReturnValue({
+      provider: "lmstudio",
+      local: {},
+      remote: {},
+    });
+    resolveLmstudioRuntimeApiKey.mockResolvedValue(undefined);
+
+    await noteMemorySearchHealth(cfgWithLmstudioApiKeyAuth);
+
+    const message = String(note.mock.calls[0]?.[0] ?? "");
+    expect(message).toContain('Memory search provider "lmstudio" is configured for API-key auth');
+    expect(message).toContain("LM_API_TOKEN");
+    expect(message).toContain("openclaw configure --section model");
+  });
+
+  it("warns when lmstudio gateway probe is not ready and auth mode is api-key", async () => {
+    resolveMemorySearchConfig.mockReturnValue({
+      provider: "lmstudio",
+      local: {},
+      remote: {
+        baseUrl: "https://lmstudio.example.com/v1",
+      },
+    });
+    resolveLmstudioRuntimeApiKey.mockResolvedValue(undefined);
+
+    await noteMemorySearchHealth(cfgWithLmstudioApiKeyAuth, {
+      gatewayMemoryProbe: {
+        checked: true,
+        ready: false,
+        error: "LM Studio model discovery failed (401)",
+      },
+    });
+
+    expect(resolveLmstudioRuntimeApiKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentDir: "/tmp/agent-default",
+        allowMissingAuth: true,
+        config: expect.objectContaining({
+          models: expect.objectContaining({
+            providers: expect.objectContaining({
+              lmstudio: expect.objectContaining({ auth: "api-key" }),
+            }),
+          }),
+        }),
+      }),
+    );
+    const message = String(note.mock.calls[0]?.[0] ?? "");
+    expect(message).toContain('Memory search provider "lmstudio" is configured for API-key auth');
+    expect(message).toContain("LM_API_TOKEN");
+    expect(message).toContain("Gateway memory probe for default agent is not ready");
+  });
+
+  it("warns about lmstudio probe failures without auth guidance when auth mode is unset", async () => {
+    resolveMemorySearchConfig.mockReturnValue({
+      provider: "lmstudio",
+      local: {},
+      remote: {},
+    });
+
+    await noteMemorySearchHealth(cfg, {
+      gatewayMemoryProbe: {
+        checked: true,
+        ready: false,
+        error: "LM Studio model discovery failed (500)",
+      },
+    });
+
+    const message = String(note.mock.calls[0]?.[0] ?? "");
+    expect(message).toContain(
+      'Memory search provider "lmstudio" is configured, but the gateway reports embeddings are not ready.',
+    );
+    expect(message).not.toContain("LM_API_TOKEN");
   });
 
   it("notes when gateway probe reports embeddings ready and CLI API key is missing", async () => {

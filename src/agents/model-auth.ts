@@ -25,6 +25,7 @@ import {
   CUSTOM_LOCAL_AUTH_MARKER,
   isKnownEnvApiKeyMarker,
   isNonSecretApiKeyMarker,
+  LMSTUDIO_LOCAL_AUTH_MARKER,
   OLLAMA_LOCAL_AUTH_MARKER,
 } from "./model-auth-markers.js";
 import { normalizeProviderId } from "./model-selection.js";
@@ -80,6 +81,10 @@ export function resolveUsableCustomProviderApiKey(params: {
   const customKey = getCustomProviderApiKey(params.cfg, params.provider);
   if (!customKey) {
     return null;
+  }
+  const normalizedProvider = normalizeProviderId(params.provider);
+  if (normalizedProvider === "lmstudio" && customKey === LMSTUDIO_LOCAL_AUTH_MARKER) {
+    return { apiKey: customKey, source: "models.json" };
   }
   if (!isNonSecretApiKeyMarker(customKey)) {
     return { apiKey: customKey, source: "models.json" };
@@ -346,10 +351,17 @@ export async function resolveApiKeyForProvider(params: {
 
   const customKey = resolveUsableCustomProviderApiKey({ cfg, provider });
   if (customKey) {
-    return { apiKey: customKey.apiKey, source: customKey.source, mode: "api-key" };
+    return {
+      apiKey: customKey.apiKey,
+      source: customKey.source,
+      mode: "api-key",
+    };
   }
 
-  const syntheticLocalAuth = resolveSyntheticLocalProviderAuth({ cfg, provider });
+  const syntheticLocalAuth = resolveSyntheticLocalProviderAuth({
+    cfg,
+    provider,
+  });
   if (syntheticLocalAuth) {
     return syntheticLocalAuth;
   }
@@ -537,7 +549,10 @@ export function applyLocalNoAuthHeaderOverride<T extends Model<Api>>(
   model: T,
   auth: ResolvedProviderAuth | null | undefined,
 ): T {
-  if (auth?.apiKey !== CUSTOM_LOCAL_AUTH_MARKER || model.api !== "openai-completions") {
+  const apiKey = auth?.apiKey?.trim();
+  const isLocalNoAuthMarker =
+    apiKey === CUSTOM_LOCAL_AUTH_MARKER || apiKey === LMSTUDIO_LOCAL_AUTH_MARKER;
+  if (!isLocalNoAuthMarker || model.api !== "openai-completions") {
     return model;
   }
 

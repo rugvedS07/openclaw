@@ -262,6 +262,20 @@ export abstract class MemoryManagerEmbeddingOps extends MemoryManagerSyncOps {
         }),
       );
     }
+    if (this.provider.id === "lmstudio" && this.lmstudio) {
+      const entries = Object.entries(this.lmstudio.headers)
+        .filter(([key]) => key.toLowerCase() !== "authorization")
+        .toSorted(([a], [b]) => a.localeCompare(b))
+        .map(([key, value]) => [key, value]);
+      return hashText(
+        JSON.stringify({
+          provider: "lmstudio",
+          baseUrl: this.lmstudio.baseUrl,
+          model: this.lmstudio.model,
+          headers: entries,
+        }),
+      );
+    }
     return hashText(JSON.stringify({ provider: this.provider.id, model: this.provider.model }));
   }
 

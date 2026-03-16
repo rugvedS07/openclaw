@@ -45,6 +45,18 @@
       "types": "./dist/plugin-sdk/core.d.ts",
       "default": "./dist/plugin-sdk/core.js"
     },
+    "./plugin-sdk/compat": {
+      "types": "./dist/plugin-sdk/compat.d.ts",
+      "default": "./dist/plugin-sdk/compat.js"
+    },
+    "./plugin-sdk/lmstudio-defaults": {
+      "types": "./dist/plugin-sdk/lmstudio-defaults.d.ts",
+      "default": "./dist/plugin-sdk/lmstudio-defaults.js"
+    },
+    "./plugin-sdk/lmstudio-setup": {
+      "types": "./dist/plugin-sdk/lmstudio-setup.d.ts",
+      "default": "./dist/plugin-sdk/lmstudio-setup.js"
+    },
     "./plugin-sdk/ollama-setup": {
       "types": "./dist/plugin-sdk/ollama-setup.d.ts",
       "default": "./dist/plugin-sdk/ollama-setup.js"

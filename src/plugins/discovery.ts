@@ -25,6 +25,7 @@ const CANONICAL_PACKAGE_ID_ALIASES: Record<string, string> = {
   "elevenlabs-speech": "elevenlabs",
   "microsoft-speech": "microsoft",
   "ollama-provider": "ollama",
+  "lmstudio-provider": "lmstudio",
   "sglang-provider": "sglang",
   "vllm-provider": "vllm",
 };

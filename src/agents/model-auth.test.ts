@@ -5,6 +5,7 @@ import type { AuthProfileStore } from "./auth-profiles.js";
 import {
   CUSTOM_LOCAL_AUTH_MARKER,
   GCP_VERTEX_CREDENTIALS_MARKER,
+  LMSTUDIO_LOCAL_AUTH_MARKER,
   NON_ENV_SECRETREF_MARKER,
 } from "./model-auth-markers.js";
 import {
@@ -191,6 +192,48 @@ describe("resolveUsableCustomProviderApiKey", () => {
     expect(resolved).toBeNull();
   });
 
+  it("treats LM Studio no-auth markers as usable for the LM Studio provider", () => {
+    const resolved = resolveUsableCustomProviderApiKey({
+      cfg: {
+        models: {
+          providers: {
+            lmstudio: {
+              baseUrl: "http://lmstudio.internal:1234/v1",
+              apiKey: LMSTUDIO_LOCAL_AUTH_MARKER,
+              models: [],
+            },
+          },
+        },
+      },
+      provider: "lmstudio",
+    });
+    expect(resolved).toEqual({
+      apiKey: LMSTUDIO_LOCAL_AUTH_MARKER,
+      source: "models.json",
+    });
+  });
+
+  it("treats legacy custom-local marker as usable for LM Studio provider compatibility", () => {
+    const resolved = resolveUsableCustomProviderApiKey({
+      cfg: {
+        models: {
+          providers: {
+            lmstudio: {
+              baseUrl: "http://lmstudio.internal:1234/v1",
+              apiKey: CUSTOM_LOCAL_AUTH_MARKER,
+              models: [],
+            },
+          },
+        },
+      },
+      provider: "lmstudio",
+    });
+    expect(resolved).toEqual({
+      apiKey: CUSTOM_LOCAL_AUTH_MARKER,
+      source: "models.json",
+    });
+  });
+
   it("resolves known env marker names from process env for custom providers", () => {
     const previous = process.env.OPENAI_API_KEY;
     process.env.OPENAI_API_KEY = "sk-from-env"; // pragma: allowlist secret
@@ -251,6 +294,36 @@ describe("resolveUsableCustomProviderApiKey", () => {
 });
 
 describe("resolveApiKeyForProvider – synthetic local auth for custom providers", () => {
+  it("accepts LM Studio no-auth marker for non-local LM Studio providers", async () => {
+    const auth = await resolveApiKeyForProvider({
+      provider: "lmstudio",
+      cfg: {
+        models: {
+          providers: {
+            lmstudio: {
+              baseUrl: "http://lmstudio.internal:1234/v1",
+              api: "openai-completions",
+              apiKey: LMSTUDIO_LOCAL_AUTH_MARKER,
+              models: [
+                {
+                  id: "qwen-3.5",
+                  name: "Qwen 3.5",
+                  reasoning: false,
+                  input: ["text"],
+                  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+                  contextWindow: 8192,
+                  maxTokens: 4096,
+                },
+              ],
+            },
+          },
+        },
+      },
+    });
+    expect(auth.apiKey).toBe(LMSTUDIO_LOCAL_AUTH_MARKER);
+    expect(auth.source).toBe("models.json");
+  });
+
   it("synthesizes a local auth marker for custom providers with a local baseUrl and no apiKey", async () => {
     const auth = await resolveApiKeyForProvider({
       provider: "custom-127-0-0-1-8080",
@@ -580,5 +653,63 @@ describe("applyLocalNoAuthHeaderOverride", () => {
 
     expect(capturedAuthorization).toBeNull();
     expect(capturedXTest).toBe("1");
+  });
+
+  it("clears Authorization for LM Studio no-auth marker on OpenAI-compatible models", async () => {
+    let capturedAuthorization: string | null | undefined;
+    let resolveRequest: (() => void) | undefined;
+    const requestSeen = new Promise<void>((resolve) => {
+      resolveRequest = resolve;
+    });
+    globalThis.fetch = withFetchPreconnect(
+      vi.fn(async (_input, init) => {
+        const headers = new Headers(init?.headers);
+        capturedAuthorization = headers.get("Authorization");
+        resolveRequest?.();
+        return new Response(JSON.stringify({ error: { message: "unauthorized" } }), {
+          status: 401,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+
+    const model = applyLocalNoAuthHeaderOverride(
+      {
+        id: "lmstudio",
+        name: "lmstudio",
+        api: "openai-completions",
+        provider: "lmstudio",
+        baseUrl: "http://lmstudio.internal:1234/v1",
+        reasoning: false,
+        input: ["text"],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 8192,
+        maxTokens: 4096,
+      } as Model<"openai-completions">,
+      {
+        apiKey: LMSTUDIO_LOCAL_AUTH_MARKER,
+        source: "models.providers.lmstudio",
+        mode: "api-key",
+      },
+    );
+
+    streamSimpleOpenAICompletions(
+      model,
+      {
+        messages: [
+          {
+            role: "user",
+            content: "hello",
+            timestamp: Date.now(),
+          },
+        ],
+      },
+      {
+        apiKey: LMSTUDIO_LOCAL_AUTH_MARKER,
+      },
+    );
+
+    await requestSeen;
+    expect(capturedAuthorization).toBeNull();
   });
 });

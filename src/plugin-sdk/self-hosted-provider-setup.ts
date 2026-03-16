@@ -19,6 +19,7 @@ export {
 } from "../plugins/provider-self-hosted-setup.js";
 
 export {
+  buildLmstudioProvider,
   buildSglangProvider,
   buildVllmProvider,
 } from "../agents/models-config.providers.discovery.js";

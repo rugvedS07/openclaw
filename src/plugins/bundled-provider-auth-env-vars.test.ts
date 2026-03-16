@@ -51,6 +51,7 @@ describe("bundled provider auth env vars", () => {
       "MINIMAX_OAUTH_TOKEN",
       "MINIMAX_API_KEY",
     ]);
+    expect(BUNDLED_PROVIDER_AUTH_ENV_VAR_CANDIDATES.lmstudio).toEqual(["LM_API_TOKEN"]);
     expect(BUNDLED_PROVIDER_AUTH_ENV_VAR_CANDIDATES.openai).toEqual(["OPENAI_API_KEY"]);
     expect(BUNDLED_PROVIDER_AUTH_ENV_VAR_CANDIDATES.fal).toEqual(["FAL_KEY"]);
     expect("openai-codex" in BUNDLED_PROVIDER_AUTH_ENV_VAR_CANDIDATES).toBe(false);

@@ -1,5 +1,6 @@
 import fsSync from "node:fs";
 import { resolveAgentDir, resolveDefaultAgentId } from "../agents/agent-scope.js";
+import { resolveLmstudioRuntimeApiKey } from "../agents/lmstudio-runtime.js";
 import { resolveMemorySearchConfig } from "../agents/memory-search.js";
 import { resolveApiKeyForProvider } from "../agents/model-auth.js";
 import { formatCliCommand } from "../cli/command-format.js";
@@ -77,6 +78,49 @@ export async function noteMemorySearchHealth(
         ].join("\n"),
         "Memory search",
       );
+      return;
+    }
+    if (resolved.provider === "lmstudio") {
+      const lmstudioAuthEnabled = cfg.models?.providers?.lmstudio?.auth === "api-key";
+      const gatewayProbe = opts?.gatewayMemoryProbe;
+      const gatewayProbeWarning = buildGatewayProbeWarning(gatewayProbe);
+      if (!lmstudioAuthEnabled && !gatewayProbeWarning) {
+        return;
+      }
+      const hasLmstudioAuth =
+        hasRemoteApiKey || (await hasApiKeyForProvider(resolved.provider, cfg, agentDir));
+      if (lmstudioAuthEnabled && !hasLmstudioAuth) {
+        note(
+          [
+            'Memory search provider "lmstudio" is configured for API-key auth, but no LM Studio API key was found.',
+            gatewayProbe?.checked && gatewayProbe.ready
+              ? "Gateway reports embeddings are ready for the default agent."
+              : gatewayProbeWarning,
+            `Fix: set LM_API_TOKEN or run ${formatCliCommand("openclaw configure --section model")}.`,
+            `Verify: ${formatCliCommand("openclaw memory status --deep")}`,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          "Memory search",
+        );
+        return;
+      }
+      if (!gatewayProbeWarning) {
+        return;
+      }
+      note(
+        [
+          'Memory search provider "lmstudio" is configured, but the gateway reports embeddings are not ready.',
+          gatewayProbeWarning,
+          `Verify: ${formatCliCommand("openclaw memory status --deep")}`,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        "Memory search",
+      );
+      return;
+    }
+    if (!providerRequiresApiKey(resolved.provider)) {
       return;
     }
     // Remote provider — check for API key
@@ -187,18 +231,35 @@ function hasLocalEmbeddings(local: { modelPath?: string }, useDefaultFallback = 
 }
 
 async function hasApiKeyForProvider(
-  provider: "openai" | "gemini" | "voyage" | "mistral" | "ollama",
+  provider: "openai" | "gemini" | "voyage" | "mistral" | "lmstudio" | "ollama",
   cfg: OpenClawConfig,
   agentDir: string,
 ): Promise<boolean> {
   // Map embedding provider names to model-auth provider names
   const authProvider = provider === "gemini" ? "google" : provider;
   try {
+    if (provider === "lmstudio") {
+      return Boolean(
+        await resolveLmstudioRuntimeApiKey({
+          config: cfg,
+          agentDir,
+          allowMissingAuth: true,
+        }),
+      );
+    }
     await resolveApiKeyForProvider({ provider: authProvider, cfg, agentDir });
     return true;
   } catch {
     return false;
   }
+}
+
+function providerRequiresApiKey(
+  provider: "openai" | "local" | "gemini" | "voyage" | "mistral" | "lmstudio" | "ollama",
+): boolean {
+  // Local LM Studio can legitimately run without auth, so doctor should not
+  // warn purely because it cannot resolve a token from config.
+  return provider !== "lmstudio";
 }
 
 function providerEnvVar(provider: string): string {
@@ -209,6 +270,8 @@ function providerEnvVar(provider: string): string {
       return "GEMINI_API_KEY";
     case "voyage":
       return "VOYAGE_API_KEY";
+    case "lmstudio":
+      return "LM_API_TOKEN";
     default:
       return `${provider.toUpperCase()}_API_KEY`;
   }

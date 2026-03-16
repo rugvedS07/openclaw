@@ -612,6 +612,7 @@ export const MemorySearchSchema = z
         z.literal("gemini"),
         z.literal("voyage"),
         z.literal("mistral"),
+        z.literal("lmstudio"),
         z.literal("ollama"),
       ])
       .optional(),
@@ -640,6 +641,7 @@ export const MemorySearchSchema = z
         z.literal("local"),
         z.literal("voyage"),
         z.literal("mistral"),
+        z.literal("lmstudio"),
         z.literal("ollama"),
         z.literal("none"),
       ])

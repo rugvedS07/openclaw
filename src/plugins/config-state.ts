@@ -39,6 +39,7 @@ export const BUNDLED_ENABLED_BY_DEFAULT = new Set<string>([
   "google",
   "huggingface",
   "kilocode",
+  "lmstudio",
   "kimi",
   "minimax",
   "mistral",

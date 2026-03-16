@@ -32,6 +32,7 @@ export {
   promptAndConfigureVllm,
 } from "../plugins/provider-vllm-setup.js";
 export {
+  buildLmstudioProvider,
   buildOllamaProvider,
   buildSglangProvider,
   buildVllmProvider,

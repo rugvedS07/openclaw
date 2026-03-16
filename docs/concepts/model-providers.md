@@ -465,6 +465,28 @@ MiniMax is configured via `models.providers` because it uses custom endpoints:
 
 See [/providers/minimax](/providers/minimax) for setup details, model options, and config snippets.
 
+### LM Studio
+
+LM Studio ships as a bundled provider plugin which uses the native API:
+
+- Provider: `lmstudio`
+- Auth: `LM_API_TOKEN` (if auth is not toggled on within LM Studio, any placeholder string is acceptable)
+- Default inference base URL: `http://localhost:1234/v1`
+
+Then set a model (replace with one of the IDs returned by `http://localhost:1234/api/v1/models`):
+
+```json5
+{
+  agents: {
+    defaults: { model: { primary: "lmstudio/openai/gpt-oss-20b" } },
+  },
+}
+```
+
+OpenClaw uses LM Studio's native `/api/v1/models` and `/api/v1/models/load`
+for discovery + auto-load, with `/v1/chat/completions` for inference by default.
+See [/providers/lmstudio](/providers/lmstudio) for setup and troubleshooting.
+
 ### Ollama
 
 Ollama ships as a bundled provider plugin and uses Ollama's native API:
@@ -547,7 +569,7 @@ Then set a model (replace with one of the IDs returned by `/v1/models`):
 
 See [/providers/sglang](/providers/sglang) for details.
 
-### Local proxies (LM Studio, vLLM, LiteLLM, etc.)
+### Local proxies (vLLM, LiteLLM, etc.)
 
 Example (OpenAI‑compatible):
 
@@ -555,15 +577,15 @@ Example (OpenAI‑compatible):
 {
   agents: {
     defaults: {
-      model: { primary: "lmstudio/minimax-m2.5-gs32" },
-      models: { "lmstudio/minimax-m2.5-gs32": { alias: "Minimax" } },
+      model: { primary: "localproxy/minimax-m2.5-gs32" },
+      models: { "localproxy/minimax-m2.5-gs32": { alias: "Minimax" } },
     },
   },
   models: {
     providers: {
-      lmstudio: {
+      localproxy: {
         baseUrl: "http://localhost:1234/v1",
-        apiKey: "LMSTUDIO_KEY",
+        apiKey: "LOCAL_PROXY_API_KEY",
         api: "openai-completions",
         models: [
           {

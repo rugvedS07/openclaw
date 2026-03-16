@@ -6,7 +6,7 @@ const asConfig = (cfg: OpenClawConfig): OpenClawConfig => cfg;
 
 describe("memory search config", () => {
   function configWithDefaultProvider(
-    provider: "openai" | "local" | "gemini" | "mistral" | "ollama",
+    provider: "openai" | "local" | "gemini" | "mistral" | "lmstudio" | "ollama",
   ): OpenClawConfig {
     return asConfig({
       agents: {
@@ -310,6 +310,13 @@ describe("memory search config", () => {
     const resolved = resolveMemorySearchConfig(cfg, "main");
     expectDefaultRemoteBatch(resolved);
     expect(resolved?.model).toBe("nomic-embed-text");
+  });
+
+  it("includes remote defaults and model default for lmstudio without overrides", () => {
+    const cfg = configWithDefaultProvider("lmstudio");
+    const resolved = resolveMemorySearchConfig(cfg, "main");
+    expectDefaultRemoteBatch(resolved);
+    expect(resolved?.model).toBe("text-embedding-nomic-embed-text-v1.5");
   });
 
   it("defaults session delta thresholds", () => {

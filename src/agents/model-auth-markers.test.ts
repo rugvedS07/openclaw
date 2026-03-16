@@ -4,6 +4,7 @@ import {
   GCP_VERTEX_CREDENTIALS_MARKER,
   isKnownEnvApiKeyMarker,
   isNonSecretApiKeyMarker,
+  LMSTUDIO_LOCAL_AUTH_MARKER,
   NON_ENV_SECRETREF_MARKER,
   resolveOAuthApiKeyMarker,
 } from "./model-auth-markers.js";
@@ -15,6 +16,7 @@ describe("model auth markers", () => {
     expect(isNonSecretApiKeyMarker(resolveOAuthApiKeyMarker("chutes"))).toBe(true);
     expect(isNonSecretApiKeyMarker("ollama-local")).toBe(true);
     expect(isNonSecretApiKeyMarker(GCP_VERTEX_CREDENTIALS_MARKER)).toBe(true);
+    expect(isNonSecretApiKeyMarker(LMSTUDIO_LOCAL_AUTH_MARKER)).toBe(true);
   });
 
   it("recognizes known env marker names but not arbitrary all-caps keys", () => {

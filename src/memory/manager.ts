@@ -12,6 +12,7 @@ import {
   type EmbeddingProviderRequest,
   type EmbeddingProviderResult,
   type GeminiEmbeddingClient,
+  type LmstudioEmbeddingClient,
   type MistralEmbeddingClient,
   type OllamaEmbeddingClient,
   type OpenAiEmbeddingClient,
@@ -84,7 +85,14 @@ export class MemoryIndexManager extends MemoryManagerEmbeddingOps implements Mem
   private readonly requestedProvider: EmbeddingProviderRequest;
   private providerInitPromise: Promise<void> | null = null;
   private providerInitialized = false;
-  protected fallbackFrom?: "openai" | "local" | "gemini" | "voyage" | "mistral" | "ollama";
+  protected fallbackFrom?:
+    | "openai"
+    | "local"
+    | "gemini"
+    | "voyage"
+    | "mistral"
+    | "lmstudio"
+    | "ollama";
   protected fallbackReason?: string;
   private providerUnavailableReason?: string;
   protected openAi?: OpenAiEmbeddingClient;
@@ -92,6 +100,7 @@ export class MemoryIndexManager extends MemoryManagerEmbeddingOps implements Mem
   protected voyage?: VoyageEmbeddingClient;
   protected mistral?: MistralEmbeddingClient;
   protected ollama?: OllamaEmbeddingClient;
+  protected lmstudio?: LmstudioEmbeddingClient;
   protected batch: {
     enabled: boolean;
     wait: boolean;
@@ -284,6 +293,7 @@ export class MemoryIndexManager extends MemoryManagerEmbeddingOps implements Mem
     this.voyage = providerResult.voyage;
     this.mistral = providerResult.mistral;
     this.ollama = providerResult.ollama;
+    this.lmstudio = providerResult.lmstudio;
     this.providerInitialized = true;
   }
 

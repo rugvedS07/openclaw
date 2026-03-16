@@ -339,7 +339,7 @@ export type MemorySearchConfig = {
     sessionMemory?: boolean;
   };
   /** Embedding provider mode. */
-  provider?: "openai" | "gemini" | "local" | "voyage" | "mistral" | "ollama";
+  provider?: "openai" | "gemini" | "local" | "voyage" | "mistral" | "lmstudio" | "ollama";
   remote?: {
     baseUrl?: string;
     apiKey?: SecretInput;
@@ -358,7 +358,7 @@ export type MemorySearchConfig = {
     };
   };
   /** Fallback behavior when embeddings fail. */
-  fallback?: "openai" | "gemini" | "local" | "voyage" | "mistral" | "ollama" | "none";
+  fallback?: "openai" | "gemini" | "local" | "voyage" | "mistral" | "lmstudio" | "ollama" | "none";
   /** Embedding model id (remote) or alias (local). */
   model?: string;
   /**

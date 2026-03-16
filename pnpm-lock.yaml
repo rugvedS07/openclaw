@@ -417,6 +417,8 @@ importers:
         specifier: ^8.18.0
         version: 8.18.0
 
+  extensions/lmstudio: {}
+
   extensions/lobster:
     dependencies:
       '@sinclair/typebox':
