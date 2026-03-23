@@ -83,7 +83,10 @@ export function resolveUsableCustomProviderApiKey(params: {
     return null;
   }
   const normalizedProvider = normalizeProviderId(params.provider);
-  if (normalizedProvider === "lmstudio" && customKey === LMSTUDIO_LOCAL_AUTH_MARKER) {
+  if (
+    normalizedProvider === "lmstudio" &&
+    (customKey === LMSTUDIO_LOCAL_AUTH_MARKER || customKey === CUSTOM_LOCAL_AUTH_MARKER)
+  ) {
     return { apiKey: customKey, source: "models.json" };
   }
   if (!isNonSecretApiKeyMarker(customKey)) {

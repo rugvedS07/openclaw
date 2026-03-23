@@ -101,7 +101,7 @@ describe("embeddings-lmstudio", () => {
     });
   });
 
-  it("ignores remote overrides and uses provider config + runtime auth", async () => {
+  it("honors remote baseUrl/apiKey/header overrides", async () => {
     ensureLmstudioModelLoadedMock.mockResolvedValue(undefined);
     resolveLmstudioRuntimeApiKeyMock.mockResolvedValue("profile-key");
 
@@ -113,6 +113,10 @@ describe("embeddings-lmstudio", () => {
           providers: {
             lmstudio: {
               baseUrl: "http://localhost:1234",
+              headers: {
+                "X-Provider": "provider",
+                "X-Config-Only": "from-provider",
+              },
               models: [],
             },
           },
@@ -124,20 +128,39 @@ describe("embeddings-lmstudio", () => {
       remote: {
         baseUrl: "http://localhost:9999",
         apiKey: "remote-lmstudio-key",
+        headers: {
+          "X-Provider": "remote",
+          "X-Remote-Only": "from-remote",
+        },
       },
     });
 
     await provider.embedBatch(["one", "two"]);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:1234/v1/embeddings",
+      "http://localhost:9999/v1/embeddings",
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: "Bearer profile-key",
+          Authorization: "Bearer remote-lmstudio-key",
+          "X-Provider": "remote",
+          "X-Config-Only": "from-provider",
+          "X-Remote-Only": "from-remote",
         }),
       }),
     );
-    expect(resolveLmstudioRuntimeApiKeyMock).toHaveBeenCalledTimes(1);
+    expect(resolveLmstudioRuntimeApiKeyMock).not.toHaveBeenCalled();
+    expect(ensureLmstudioModelLoadedMock).toHaveBeenCalledWith({
+      baseUrl: "http://localhost:9999/v1",
+      apiKey: "remote-lmstudio-key",
+      headers: {
+        "X-Provider": "remote",
+        "X-Config-Only": "from-provider",
+        "X-Remote-Only": "from-remote",
+      },
+      ssrfPolicy: { allowedHostnames: ["localhost"] },
+      modelKey: "text-embedding-nomic-embed-text-v1.5",
+      timeoutMs: 120_000,
+    });
   });
 
   it("allows keyless local LM Studio", async () => {
