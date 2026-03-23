@@ -18,7 +18,6 @@ import { normalizeEmbeddingModelWithPrefixes } from "./embeddings-model-normaliz
 import { createRemoteEmbeddingProvider } from "./embeddings-remote-provider.js";
 import type { EmbeddingProvider, EmbeddingProviderOptions } from "./embeddings.js";
 import { buildRemoteBaseUrlPolicy } from "./remote-http.js";
-import { resolveMemorySecretInputString } from "./secret-input.js";
 
 const log = createSubsystemLogger("memory/embeddings");
 
@@ -44,13 +43,6 @@ function normalizeLmstudioModel(model: string): string {
 async function resolveLmstudioApiKey(
   options: EmbeddingProviderOptions,
 ): Promise<string | undefined> {
-  const remoteApiKey = resolveMemorySecretInputString({
-    value: options.remote?.apiKey,
-    path: "agents.*.memorySearch.remote.apiKey",
-  });
-  if (remoteApiKey) {
-    return remoteApiKey;
-  }
   const authMode = options.config.models?.providers?.lmstudio?.auth;
   return await resolveLmstudioRuntimeApiKey({
     config: options.config,
@@ -60,19 +52,17 @@ async function resolveLmstudioApiKey(
   });
 }
 
-/** Creates the LM Studio embedding provider client and best-effort warms the target model. */
+/** Creates the LM Studio embedding provider client and preloads the target model before return. */
 export async function createLmstudioEmbeddingProvider(
   options: EmbeddingProviderOptions,
 ): Promise<{ provider: EmbeddingProvider; client: LmstudioEmbeddingClient }> {
   const providerConfig = options.config.models?.providers?.lmstudio;
-  const remoteBaseUrl = options.remote?.baseUrl?.trim();
   const providerBaseUrl = providerConfig?.baseUrl?.trim();
+  // LM Studio should resolve from models.providers.lmstudio only.
+  // Do not honor memorySearch.remote overrides here, or a fallback from another
+  // remote provider can keep using that provider's endpoint or credentials.
   const configuredBaseUrl =
-    remoteBaseUrl && remoteBaseUrl.length > 0
-      ? remoteBaseUrl
-      : providerBaseUrl && providerBaseUrl.length > 0
-        ? providerBaseUrl
-        : undefined;
+    providerBaseUrl && providerBaseUrl.length > 0 ? providerBaseUrl : undefined;
   const baseUrl = resolveLmstudioInferenceBase(configuredBaseUrl);
   const model = normalizeLmstudioModel(options.model);
   const apiKey = await resolveLmstudioApiKey(options);
@@ -81,7 +71,7 @@ export async function createLmstudioEmbeddingProvider(
     env: process.env,
     headers: providerConfig?.headers,
   });
-  const headerOverrides = Object.assign({}, providerHeaders, options.remote?.headers);
+  const headerOverrides = Object.assign({}, providerHeaders);
   const headers =
     buildLmstudioAuthHeaders({
       apiKey,
@@ -96,21 +86,22 @@ export async function createLmstudioEmbeddingProvider(
     ssrfPolicy,
   };
 
-  // Warmup is best-effort only; do not block provider construction on cold model load.
-  void ensureLmstudioModelLoaded({
-    baseUrl,
-    apiKey,
-    headers: headerOverrides,
-    ssrfPolicy,
-    modelKey: model,
-    timeoutMs: 120_000,
-  }).catch((error) => {
+  try {
+    await ensureLmstudioModelLoaded({
+      baseUrl,
+      apiKey,
+      headers: headerOverrides,
+      ssrfPolicy,
+      modelKey: model,
+      timeoutMs: 120_000,
+    });
+  } catch (error) {
     log.warn("lmstudio embeddings warmup failed; continuing without preload", {
       baseUrl,
       model,
       error: formatErrorMessage(error),
     });
-  });
+  }
 
   return {
     provider: createRemoteEmbeddingProvider({

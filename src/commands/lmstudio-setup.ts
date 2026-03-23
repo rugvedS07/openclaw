@@ -15,6 +15,7 @@ import {
   resolveLmstudioInferenceBase,
 } from "../agents/lmstudio-models.js";
 import { resolveLmstudioProviderHeaders } from "../agents/lmstudio-runtime.js";
+import { CUSTOM_LOCAL_AUTH_MARKER } from "../agents/model-auth-markers.js";
 import { resolveUsableCustomProviderApiKey } from "../agents/model-auth.js";
 import { buildLmstudioProvider } from "../agents/models-config.providers.discovery.js";
 import { projectConfigOntoRuntimeSourceSnapshot, type OpenClawConfig } from "../config/config.js";
@@ -95,9 +96,33 @@ function resolveLmstudioProviderAuthMode(
 ): ModelProviderConfig["auth"] | undefined {
   const normalized = normalizeOptionalSecretInput(apiKey);
   if (normalized !== undefined) {
-    return normalized && normalized !== LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER ? "api-key" : undefined;
+    return normalized &&
+      normalized !== LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER &&
+      normalized !== CUSTOM_LOCAL_AUTH_MARKER
+      ? "api-key"
+      : undefined;
   }
   return resolveSecretInputRef({ value: apiKey }).ref ? "api-key" : undefined;
+}
+
+function resolvePersistedLmstudioApiKey(params: {
+  currentApiKey: ModelProviderConfig["apiKey"] | undefined;
+  explicitAuth: ModelProviderConfig["auth"] | undefined;
+  fallbackApiKey: ModelProviderConfig["apiKey"] | undefined;
+  hasModels: boolean;
+}): ModelProviderConfig["apiKey"] | undefined {
+  if (resolveLmstudioProviderAuthMode(params.currentApiKey)) {
+    return params.currentApiKey;
+  }
+  if (params.explicitAuth === "api-key") {
+    return params.fallbackApiKey;
+  }
+  return shouldUseLmstudioApiKeyPlaceholder({
+    hasModels: params.hasModels,
+    resolvedApiKey: params.currentApiKey,
+  })
+    ? LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER
+    : undefined;
 }
 
 /** Keeps explicit model entries first and appends unique discovered entries. */
@@ -293,6 +318,13 @@ export async function promptAndConfigureLmstudioInteractive(params: {
   const discoveredModels = mapFetchedLmstudioModelsToCatalog(discovery.models);
   const allowlistEntries = mapDiscoveredLmstudioModelsToAllowlistEntries(discoveredModels);
   const defaultModel = selectDiscoveredLmstudioDefaultModel(discoveredModels);
+  const persistedApiKey =
+    resolvePersistedLmstudioApiKey({
+      currentApiKey: existingProvider?.apiKey,
+      explicitAuth: "api-key",
+      fallbackApiKey: LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
+      hasModels: discoveredModels.length > 0,
+    }) ?? LMSTUDIO_DEFAULT_API_KEY_ENV_VAR;
 
   return {
     profiles: [
@@ -316,7 +348,7 @@ export async function promptAndConfigureLmstudioInteractive(params: {
             baseUrl,
             api: existingProvider?.api ?? "openai-completions",
             auth: "api-key",
-            apiKey: existingProvider?.apiKey ?? LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
+            apiKey: persistedApiKey,
             models: discoveredModels,
           },
         },
@@ -429,6 +461,13 @@ export async function configureLmstudioNonInteractive(
   if (!configured) {
     return null;
   }
+  const persistedApiKey = resolvePersistedLmstudioApiKey({
+    currentApiKey: existingProvider?.apiKey,
+    explicitAuth: "api-key",
+    fallbackApiKey:
+      configured.models?.providers?.[PROVIDER_ID]?.apiKey ?? LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
+    hasModels: discoveredModels.length > 0,
+  });
 
   return {
     ...configured,
@@ -436,11 +475,11 @@ export async function configureLmstudioNonInteractive(
       ...configured.models,
       providers: {
         ...configured.models?.providers,
-        // Keep existing auth marker fields while refreshing LM Studio transport + model catalog.
+        // Preserve compatible auth config while refreshing LM Studio transport + model catalog.
         [PROVIDER_ID]: {
           ...existingProvider,
           ...configured.models?.providers?.[PROVIDER_ID],
-          ...(existingProvider?.apiKey ? { apiKey: existingProvider.apiKey } : {}),
+          ...(persistedApiKey !== undefined ? { apiKey: persistedApiKey } : {}),
           ...(existingProvider?.headers ? { headers: existingProvider.headers } : {}),
           baseUrl,
           api: configured.models?.providers?.[PROVIDER_ID]?.api ?? "openai-completions",
@@ -457,9 +496,10 @@ export async function discoverLmstudioProvider(ctx: ProviderDiscoveryContext): P
   provider: ModelProviderConfig;
 } | null> {
   const explicit = ctx.config.models?.providers?.[PROVIDER_ID];
+  const explicitAuth = explicit?.auth;
   const explicitWithoutHeaders = explicit
     ? (() => {
-        const { headers: _headers, ...rest } = explicit;
+        const { headers: _headers, auth: _auth, ...rest } = explicit;
         return rest;
       })()
     : undefined;
@@ -483,14 +523,13 @@ export async function discoverLmstudioProvider(ctx: ProviderDiscoveryContext): P
   // CLI/runtime-resolved key takes precedence over static provider config key.
   const resolvedApiKey = apiKey ?? explicit?.apiKey;
   if (hasExplicitModels && explicitWithoutHeaders) {
-    const persistedApiKey =
-      resolvedApiKey ??
-      (shouldUseLmstudioApiKeyPlaceholder({
-        hasModels: hasExplicitModels,
-        resolvedApiKey,
-      })
-        ? LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER
-        : undefined);
+    const persistedApiKey = resolvePersistedLmstudioApiKey({
+      currentApiKey: resolvedApiKey,
+      explicitAuth,
+      fallbackApiKey: LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
+      hasModels: hasExplicitModels,
+    });
+    const persistedAuth = resolveLmstudioProviderAuthMode(persistedApiKey);
     return {
       provider: {
         ...explicitWithoutHeaders,
@@ -499,7 +538,7 @@ export async function discoverLmstudioProvider(ctx: ProviderDiscoveryContext): P
         // Keep explicit API unless absent, then fall back to provider default.
         api: explicitWithoutHeaders.api ?? "openai-completions",
         ...(persistedApiKey ? { apiKey: persistedApiKey } : {}),
-        ...(resolveLmstudioProviderAuthMode(persistedApiKey) ? { auth: "api-key" } : {}),
+        ...(persistedAuth ? { auth: persistedAuth } : {}),
         models: explicitWithoutHeaders.models,
       },
     };
@@ -519,14 +558,13 @@ export async function discoverLmstudioProvider(ctx: ProviderDiscoveryContext): P
   if (models.length === 0 && !apiKey && !explicit?.apiKey) {
     return null;
   }
-  const persistedApiKey =
-    resolvedApiKey ??
-    (shouldUseLmstudioApiKeyPlaceholder({
-      hasModels: models.length > 0,
-      resolvedApiKey,
-    })
-      ? LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER
-      : undefined);
+  const persistedApiKey = resolvePersistedLmstudioApiKey({
+    currentApiKey: resolvedApiKey,
+    explicitAuth,
+    fallbackApiKey: LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
+    hasModels: models.length > 0,
+  });
+  const persistedAuth = resolveLmstudioProviderAuthMode(persistedApiKey);
   return {
     provider: {
       ...provider,
@@ -534,7 +572,7 @@ export async function discoverLmstudioProvider(ctx: ProviderDiscoveryContext): P
       ...(resolvedHeaders ? { headers: resolvedHeaders } : {}),
       baseUrl: resolveLmstudioInferenceBase(explicit?.baseUrl ?? provider.baseUrl),
       ...(persistedApiKey ? { apiKey: persistedApiKey } : {}),
-      ...(resolveLmstudioProviderAuthMode(persistedApiKey) ? { auth: "api-key" } : {}),
+      ...(persistedAuth ? { auth: persistedAuth } : {}),
       models,
     },
   };

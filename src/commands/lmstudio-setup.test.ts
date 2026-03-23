@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER } from "../agents/lmstudio-defaults.js";
+import {
+  LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
+  LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER,
+} from "../agents/lmstudio-defaults.js";
+import { CUSTOM_LOCAL_AUTH_MARKER } from "../agents/model-auth-markers.js";
 import type { OpenClawConfig } from "../config/config.js";
 import { resolveAgentModelPrimaryValue } from "../config/model-input.js";
 import type { ModelDefinitionConfig } from "../config/types.models.js";
@@ -290,6 +294,36 @@ describe("lmstudio setup", () => {
     });
   });
 
+  it("interactive setup replaces stale local auth markers when enabling api-key auth", async () => {
+    const config = {
+      models: {
+        providers: {
+          lmstudio: {
+            baseUrl: "http://localhost:1234/v1",
+            apiKey: LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER,
+            api: "openai-completions",
+            models: [],
+          },
+        },
+      },
+    } as OpenClawConfig;
+    const promptText = vi
+      .fn()
+      .mockResolvedValueOnce("http://localhost:1234/api/v1/")
+      .mockResolvedValueOnce("lmstudio-test-key");
+
+    const result = await promptAndConfigureLmstudioInteractive({
+      config,
+      promptText,
+    });
+    const mergedConfig = mergeConfigPatch(config, result.configPatch);
+
+    expect(mergedConfig.models?.providers?.lmstudio).toMatchObject({
+      auth: "api-key",
+      apiKey: LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
+    });
+  });
+
   it("interactive setup returns clear errors for unreachable/http-empty results", async () => {
     const cases = [
       {
@@ -357,6 +391,36 @@ describe("lmstudio setup", () => {
     });
   });
 
+  it("discoverLmstudioProvider keeps api-key auth backed by the default env marker for explicit models", async () => {
+    const explicitModels = [createModel("qwen3-8b-instruct", "Qwen3 8B")];
+    const result = await discoverLmstudioProvider(
+      buildDiscoveryContext({
+        config: {
+          models: {
+            providers: {
+              lmstudio: {
+                baseUrl: "http://localhost:1234/api/v1/",
+                auth: "api-key",
+                models: explicitModels,
+              },
+            },
+          },
+        } as OpenClawConfig,
+      }),
+    );
+
+    expect(buildLmstudioProviderMock).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      provider: {
+        baseUrl: "http://localhost:1234/v1",
+        api: "openai-completions",
+        auth: "api-key",
+        apiKey: LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
+        models: explicitModels,
+      },
+    });
+  });
+
   it("discoverLmstudioProvider uses resolved key/headers and non-quiet discovery", async () => {
     buildLmstudioProviderMock.mockResolvedValueOnce({
       baseUrl: "http://localhost:1234/v1",
@@ -407,6 +471,30 @@ describe("lmstudio setup", () => {
     expect(result?.provider.models?.map((model) => model.id)).toEqual(["qwen3-8b-instruct"]);
   });
 
+  it("discoverLmstudioProvider rewrites stale api-key auth without a persisted key", async () => {
+    const result = await discoverLmstudioProvider(
+      buildDiscoveryContext({
+        config: {
+          models: {
+            providers: {
+              lmstudio: {
+                baseUrl: "http://localhost:1234/v1",
+                auth: "api-key",
+                models: [],
+              },
+            },
+          },
+        } as OpenClawConfig,
+      }),
+    );
+
+    expect(result?.provider).toMatchObject({
+      auth: "api-key",
+      apiKey: LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
+      models: [expect.objectContaining({ id: "qwen3-8b-instruct" })],
+    });
+  });
+
   it("discoverLmstudioProvider uses quiet mode and returns null when unconfigured", async () => {
     buildLmstudioProviderMock.mockResolvedValueOnce({
       baseUrl: "http://localhost:1234/v1",
@@ -422,5 +510,31 @@ describe("lmstudio setup", () => {
       quiet: true,
     });
     expect(result).toBeNull();
+  });
+
+  it("non-interactive setup replaces legacy local auth markers when enabling api-key auth", async () => {
+    const ctx = buildNonInteractiveContext({
+      config: {
+        models: {
+          providers: {
+            lmstudio: {
+              baseUrl: "http://localhost:1234/v1",
+              apiKey: CUSTOM_LOCAL_AUTH_MARKER,
+              api: "openai-completions",
+              models: [],
+            },
+          },
+        },
+      } as OpenClawConfig,
+      customBaseUrl: "http://localhost:1234/api/v1/",
+      customModelId: "qwen3-8b-instruct",
+    });
+
+    const result = await configureLmstudioNonInteractive(ctx);
+
+    expect(result?.models?.providers?.lmstudio).toMatchObject({
+      auth: "api-key",
+      apiKey: LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
+    });
   });
 });

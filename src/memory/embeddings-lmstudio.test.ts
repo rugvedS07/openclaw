@@ -101,7 +101,7 @@ describe("embeddings-lmstudio", () => {
     });
   });
 
-  it("honors remote baseUrl/apiKey/header overrides", async () => {
+  it("ignores memorySearch remote overrides and uses lmstudio provider config", async () => {
     ensureLmstudioModelLoadedMock.mockResolvedValue(undefined);
     resolveLmstudioRuntimeApiKeyMock.mockResolvedValue("profile-key");
 
@@ -138,24 +138,24 @@ describe("embeddings-lmstudio", () => {
     await provider.embedBatch(["one", "two"]);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:9999/v1/embeddings",
+      "http://localhost:1234/v1/embeddings",
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: "Bearer remote-lmstudio-key",
-          "X-Provider": "remote",
+          Authorization: "Bearer profile-key",
+          "X-Provider": "provider",
           "X-Config-Only": "from-provider",
-          "X-Remote-Only": "from-remote",
         }),
       }),
     );
-    expect(resolveLmstudioRuntimeApiKeyMock).not.toHaveBeenCalled();
+    const callHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>;
+    expect(callHeaders["X-Remote-Only"]).toBeUndefined();
+    expect(resolveLmstudioRuntimeApiKeyMock).toHaveBeenCalled();
     expect(ensureLmstudioModelLoadedMock).toHaveBeenCalledWith({
-      baseUrl: "http://localhost:9999/v1",
-      apiKey: "remote-lmstudio-key",
+      baseUrl: "http://localhost:1234/v1",
+      apiKey: "profile-key",
       headers: {
-        "X-Provider": "remote",
+        "X-Provider": "provider",
         "X-Config-Only": "from-provider",
-        "X-Remote-Only": "from-remote",
       },
       ssrfPolicy: { allowedHostnames: ["localhost"] },
       modelKey: "text-embedding-nomic-embed-text-v1.5",
@@ -253,5 +253,42 @@ describe("embeddings-lmstudio", () => {
         method: "POST",
       }),
     );
+  });
+
+  it("awaits warmup before returning provider", async () => {
+    let resolveWarmup: (() => void) | undefined;
+    ensureLmstudioModelLoadedMock.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveWarmup = resolve;
+        }),
+    );
+    resolveLmstudioRuntimeApiKeyMock.mockResolvedValue("profile-lmstudio-key");
+
+    let settled = false;
+    const providerPromise = createLmstudioEmbeddingProvider({
+      config: {
+        models: {
+          providers: {
+            lmstudio: {
+              baseUrl: "http://localhost:1234/v1",
+              models: [],
+            },
+          },
+        },
+      } as OpenClawConfig,
+      provider: "lmstudio",
+      model: "text-embedding-nomic-embed-text-v1.5",
+      fallback: "none",
+    }).then(() => {
+      settled = true;
+    });
+
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    resolveWarmup?.();
+    await providerPromise;
+    expect(settled).toBe(true);
   });
 });
