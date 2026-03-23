@@ -294,6 +294,24 @@ describe("noteMemorySearchHealth", () => {
     expect(message).toContain("openclaw configure --section model");
   });
 
+  it("warns when lmstudio auth mode is api-key and only memorySearch remote apiKey is set", async () => {
+    resolveMemorySearchConfig.mockReturnValue({
+      provider: "lmstudio",
+      local: {},
+      remote: {
+        apiKey: "stale-remote-key",
+      },
+    });
+    resolveLmstudioRuntimeApiKey.mockResolvedValue(undefined);
+
+    await noteMemorySearchHealth(cfgWithLmstudioApiKeyAuth);
+
+    const message = String(note.mock.calls[0]?.[0] ?? "");
+    expect(message).toContain('Memory search provider "lmstudio" is configured for API-key auth');
+    expect(message).toContain("LM_API_TOKEN");
+    expect(message).toContain("openclaw configure --section model");
+  });
+
   it("warns when lmstudio gateway probe is not ready and auth mode is api-key", async () => {
     resolveMemorySearchConfig.mockReturnValue({
       provider: "lmstudio",

@@ -1,15 +1,15 @@
 import {
-  emptyPluginConfigSchema,
+  LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
+  LMSTUDIO_PROVIDER_LABEL,
+} from "openclaw/plugin-sdk/lmstudio-defaults";
+import {
+  definePluginEntry,
   type OpenClawPluginApi,
   type ProviderAuthContext,
   type ProviderAuthMethodNonInteractiveContext,
   type ProviderAuthResult,
   type ProviderDiscoveryContext,
-} from "openclaw/plugin-sdk/core";
-import {
-  LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
-  LMSTUDIO_PROVIDER_LABEL,
-} from "openclaw/plugin-sdk/lmstudio-defaults";
+} from "openclaw/plugin-sdk/plugin-entry";
 
 const PROVIDER_ID = "lmstudio";
 
@@ -18,11 +18,10 @@ async function loadProviderSetup() {
   return await import("openclaw/plugin-sdk/lmstudio-setup");
 }
 
-const lmstudioPlugin = {
+export default definePluginEntry({
   id: PROVIDER_ID,
   name: "LM Studio Provider",
   description: "Bundled LM Studio provider plugin",
-  configSchema: emptyPluginConfigSchema(),
   register(api: OpenClawPluginApi) {
     api.registerProvider({
       id: PROVIDER_ID,
@@ -76,6 +75,4 @@ const lmstudioPlugin = {
       },
     });
   },
-};
-
-export default lmstudioPlugin;
+});

@@ -87,8 +87,7 @@ export async function noteMemorySearchHealth(
       if (!lmstudioAuthEnabled && !gatewayProbeWarning) {
         return;
       }
-      const hasLmstudioAuth =
-        hasRemoteApiKey || (await hasApiKeyForProvider(resolved.provider, cfg, agentDir));
+      const hasLmstudioAuth = await hasApiKeyForProvider(resolved.provider, cfg, agentDir);
       if (lmstudioAuthEnabled && !hasLmstudioAuth) {
         note(
           [

@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
-import { createLmstudioEmbeddingProvider } from "./embeddings-lmstudio.js";
 
 const ensureLmstudioModelLoadedMock = vi.hoisted(() => vi.fn());
 const resolveLmstudioRuntimeApiKeyMock = vi.hoisted(() => vi.fn());
@@ -20,6 +19,8 @@ vi.mock("../agents/lmstudio-runtime.js", async (importOriginal) => {
     resolveLmstudioRuntimeApiKey: (...args: unknown[]) => resolveLmstudioRuntimeApiKeyMock(...args),
   };
 });
+
+let createLmstudioEmbeddingProvider: typeof import("./embeddings-lmstudio.js").createLmstudioEmbeddingProvider;
 
 describe("embeddings-lmstudio", () => {
   const originalFetch = globalThis.fetch;
@@ -41,7 +42,9 @@ describe("embeddings-lmstudio", () => {
     return fetchMock;
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    vi.resetModules();
+    ({ createLmstudioEmbeddingProvider } = await import("./embeddings-lmstudio.js"));
     ensureLmstudioModelLoadedMock.mockReset();
     resolveLmstudioRuntimeApiKeyMock.mockReset();
   });
