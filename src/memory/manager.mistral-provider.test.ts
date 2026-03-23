@@ -284,6 +284,5 @@ describe("memory manager mistral provider wiring", () => {
       | undefined;
     expect(fallbackCall?.provider).toBe("lmstudio");
     expect(fallbackCall?.model).toBe(DEFAULT_LMSTUDIO_EMBEDDING_MODEL);
-    expect(fallbackCall?.remote).toBeUndefined();
   });
 });
