@@ -45,10 +45,6 @@
       "types": "./dist/plugin-sdk/core.d.ts",
       "default": "./dist/plugin-sdk/core.js"
     },
-    "./plugin-sdk/compat": {
-      "types": "./dist/plugin-sdk/compat.d.ts",
-      "default": "./dist/plugin-sdk/compat.js"
-    },
     "./plugin-sdk/lmstudio-defaults": {
       "types": "./dist/plugin-sdk/lmstudio-defaults.d.ts",
       "default": "./dist/plugin-sdk/lmstudio-defaults.js"

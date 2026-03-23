@@ -18,7 +18,6 @@ import { normalizeEmbeddingModelWithPrefixes } from "./embeddings-model-normaliz
 import { createRemoteEmbeddingProvider } from "./embeddings-remote-provider.js";
 import type { EmbeddingProvider, EmbeddingProviderOptions } from "./embeddings.js";
 import { buildRemoteBaseUrlPolicy } from "./remote-http.js";
-import { resolveMemorySecretInputString } from "./secret-input.js";
 
 const log = createSubsystemLogger("memory/embeddings");
 
@@ -39,18 +38,11 @@ function normalizeLmstudioModel(model: string): string {
   });
 }
 
-/** Resolves API key with remote memory override first, then runtime provider auth.
+/** Resolves API key from runtime/provider auth config.
  *  Returns undefined when no key is configured, and throws on auth lookup failures. */
 async function resolveLmstudioApiKey(
   options: EmbeddingProviderOptions,
 ): Promise<string | undefined> {
-  const remoteApiKey = resolveMemorySecretInputString({
-    value: options.remote?.apiKey,
-    path: "agents.*.memorySearch.remote.apiKey",
-  });
-  if (remoteApiKey) {
-    return remoteApiKey;
-  }
   const authMode = options.config.models?.providers?.lmstudio?.auth;
   return await resolveLmstudioRuntimeApiKey({
     config: options.config,
@@ -65,15 +57,9 @@ export async function createLmstudioEmbeddingProvider(
   options: EmbeddingProviderOptions,
 ): Promise<{ provider: EmbeddingProvider; client: LmstudioEmbeddingClient }> {
   const providerConfig = options.config.models?.providers?.lmstudio;
-  // Per-call remote override wins, then provider config, then LM Studio default.
-  const remoteBaseUrl = options.remote?.baseUrl?.trim();
   const providerBaseUrl = providerConfig?.baseUrl?.trim();
   const configuredBaseUrl =
-    remoteBaseUrl && remoteBaseUrl.length > 0
-      ? remoteBaseUrl
-      : providerBaseUrl && providerBaseUrl.length > 0
-        ? providerBaseUrl
-        : undefined;
+    providerBaseUrl && providerBaseUrl.length > 0 ? providerBaseUrl : undefined;
   const baseUrl = resolveLmstudioInferenceBase(configuredBaseUrl);
   const model = normalizeLmstudioModel(options.model);
   const apiKey = await resolveLmstudioApiKey(options);
@@ -82,8 +68,7 @@ export async function createLmstudioEmbeddingProvider(
     env: process.env,
     headers: providerConfig?.headers,
   });
-  // Allow remote call-scoped headers to override provider-level defaults.
-  const headerOverrides = Object.assign({}, providerHeaders, options.remote?.headers);
+  const headerOverrides = Object.assign({}, providerHeaders);
   const headers =
     buildLmstudioAuthHeaders({
       apiKey,

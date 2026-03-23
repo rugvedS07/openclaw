@@ -1,7 +1,6 @@
 [
   "index",
   "core",
-  "compat",
   "lmstudio-defaults",
   "lmstudio-setup",
   "ollama-setup",

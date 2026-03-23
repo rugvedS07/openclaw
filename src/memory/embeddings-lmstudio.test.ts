@@ -71,9 +71,6 @@ describe("embeddings-lmstudio", () => {
       provider: "lmstudio",
       model: "lmstudio/text-embedding-nomic-embed-text-v1.5",
       fallback: "none",
-      remote: {
-        headers: { "X-Remote": "remote" },
-      },
     });
 
     await provider.embedQuery("hello");
@@ -86,7 +83,6 @@ describe("embeddings-lmstudio", () => {
           "Content-Type": "application/json",
           Authorization: "Bearer profile-lmstudio-key",
           "X-Provider": "provider",
-          "X-Remote": "remote",
         }),
       }),
     );
@@ -95,7 +91,6 @@ describe("embeddings-lmstudio", () => {
       apiKey: "profile-lmstudio-key",
       headers: {
         "X-Provider": "provider",
-        "X-Remote": "remote",
       },
       ssrfPolicy: { allowedHostnames: ["localhost"] },
       modelKey: "text-embedding-nomic-embed-text-v1.5",
@@ -103,19 +98,28 @@ describe("embeddings-lmstudio", () => {
     });
   });
 
-  it("prefers remote auth/base URL over runtime resolution", async () => {
+  it("ignores remote overrides and uses provider config + runtime auth", async () => {
     ensureLmstudioModelLoadedMock.mockResolvedValue(undefined);
     resolveLmstudioRuntimeApiKeyMock.mockResolvedValue("profile-key");
 
     const fetchMock = mockEmbeddingFetch([1, 2, 3]);
 
     const { provider } = await createLmstudioEmbeddingProvider({
-      config: {} as OpenClawConfig,
+      config: {
+        models: {
+          providers: {
+            lmstudio: {
+              baseUrl: "http://localhost:1234",
+              models: [],
+            },
+          },
+        },
+      } as OpenClawConfig,
       provider: "lmstudio",
       model: "",
       fallback: "none",
       remote: {
-        baseUrl: "http://localhost:1234",
+        baseUrl: "http://localhost:9999",
         apiKey: "remote-lmstudio-key",
       },
     });
@@ -126,11 +130,11 @@ describe("embeddings-lmstudio", () => {
       "http://localhost:1234/v1/embeddings",
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: "Bearer remote-lmstudio-key",
+          Authorization: "Bearer profile-key",
         }),
       }),
     );
-    expect(resolveLmstudioRuntimeApiKeyMock).not.toHaveBeenCalled();
+    expect(resolveLmstudioRuntimeApiKeyMock).toHaveBeenCalledTimes(1);
   });
 
   it("allows keyless local LM Studio", async () => {
