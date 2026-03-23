@@ -49,11 +49,6 @@ function buildConfig(params: {
   indexPath: string;
   provider: "openai" | "mistral" | "lmstudio";
   fallback?: "none" | "mistral" | "ollama" | "lmstudio";
-  remote?: {
-    baseUrl?: string;
-    apiKey?: string;
-    headers?: Record<string, string>;
-  };
 }): OpenClawConfig {
   return {
     agents: {
@@ -62,7 +57,6 @@ function buildConfig(params: {
         memorySearch: {
           provider: params.provider,
           model: params.provider === "mistral" ? "mistral/mistral-embed" : "text-embedding-3-small",
-          remote: params.remote,
           fallback: params.fallback ?? "none",
           store: { path: params.indexPath, vector: { enabled: false } },
           sync: { watch: false, onSessionStart: false, onSearch: false },
@@ -251,11 +245,6 @@ describe("memory manager mistral provider wiring", () => {
       indexPath,
       provider: "openai",
       fallback: "lmstudio",
-      remote: {
-        baseUrl: "https://openai-proxy.example/v1",
-        apiKey: "proxy-key",
-        headers: { "X-Proxy-Auth": "proxy-header" },
-      },
     });
     const result = await getMemorySearchManager({ cfg, agentId: "main" });
     if (!result.manager) {
@@ -275,11 +264,6 @@ describe("memory manager mistral provider wiring", () => {
       | {
           provider?: string;
           model?: string;
-          remote?: {
-            baseUrl?: string;
-            apiKey?: string;
-            headers?: Record<string, string>;
-          };
         }
       | undefined;
     expect(fallbackCall?.provider).toBe("lmstudio");
