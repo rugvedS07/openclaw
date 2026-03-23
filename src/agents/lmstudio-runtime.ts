@@ -186,5 +186,12 @@ export async function resolveLmstudioRuntimeApiKey(params: {
   }
   // Normalize empty/whitespace keys to undefined for callers.
   const resolvedApiKey = resolved.apiKey?.trim();
-  return resolvedApiKey && resolvedApiKey.length > 0 ? resolvedApiKey : await getConfiguredApiKey();
+  if (!resolvedApiKey || resolvedApiKey.length === 0) {
+    return await getConfiguredApiKey();
+  }
+  const authMode = config.models?.providers?.[LMSTUDIO_PROVIDER_ID]?.auth;
+  if (authMode === "api-key" && isNonSecretApiKeyMarker(resolvedApiKey)) {
+    return await getConfiguredApiKey();
+  }
+  return resolvedApiKey;
 }

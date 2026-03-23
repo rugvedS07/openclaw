@@ -78,6 +78,21 @@ describe("lmstudio-runtime", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("treats synthetic local markers as missing in explicit api-key mode", async () => {
+    resolveApiKeyForProviderMock.mockResolvedValueOnce({
+      apiKey: "custom-local",
+      source: "models.providers.lmstudio (synthetic local key)",
+      mode: "api-key",
+    });
+
+    await expect(
+      resolveLmstudioRuntimeApiKey({
+        config: buildLmstudioConfig({ auth: "api-key" }),
+        allowMissingAuth: true,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it("resolves SecretRef api key and headers", async () => {
     const headerRef = {
       "X-Proxy-Auth": {
