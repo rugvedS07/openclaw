@@ -9,12 +9,16 @@ import {
   LMSTUDIO_PROVIDER_ID as PROVIDER_ID,
 } from "../agents/lmstudio-defaults.js";
 import {
+  discoverLmstudioModels,
   fetchLmstudioModels,
   mapLmstudioWireEntry,
   type LmstudioModelWire,
   resolveLmstudioInferenceBase,
 } from "../agents/lmstudio-models.js";
-import { resolveLmstudioProviderHeaders } from "../agents/lmstudio-runtime.js";
+import {
+  resolveLmstudioProviderHeaders,
+  resolveLmstudioRuntimeApiKey,
+} from "../agents/lmstudio-runtime.js";
 import { CUSTOM_LOCAL_AUTH_MARKER } from "../agents/model-auth-markers.js";
 import { resolveUsableCustomProviderApiKey } from "../agents/model-auth.js";
 import { buildLmstudioProvider } from "../agents/models-config.providers.discovery.js";
@@ -27,6 +31,8 @@ import type {
   ProviderAuthMethodNonInteractiveContext,
   ProviderAuthResult,
   ProviderDiscoveryContext,
+  ProviderPrepareDynamicModelContext,
+  ProviderRuntimeModel,
 } from "../plugins/types.js";
 import { resolveSecretInputString } from "../secrets/resolve-secret-input-string.js";
 import { normalizeOptionalSecretInput } from "../utils/normalize-secret-input.js";
@@ -576,4 +582,33 @@ export async function discoverLmstudioProvider(ctx: ProviderDiscoveryContext): P
       models,
     },
   };
+}
+
+export async function prepareLmstudioDynamicModels(
+  ctx: ProviderPrepareDynamicModelContext,
+): Promise<ProviderRuntimeModel[]> {
+  const baseUrl = resolveLmstudioInferenceBase(ctx.providerConfig?.baseUrl);
+  const apiKey = await resolveLmstudioRuntimeApiKey({
+    config: ctx.config,
+    agentDir: ctx.agentDir,
+    allowMissingAuth: true,
+    env: process.env,
+  });
+  const headers = await resolveLmstudioProviderHeaders({
+    config: ctx.config,
+    env: process.env,
+    headers: ctx.providerConfig?.headers,
+  });
+  const discoveredModels = await discoverLmstudioModels({
+    baseUrl,
+    apiKey: apiKey ?? "",
+    headers,
+    quiet: true,
+  });
+  return discoveredModels.map((model) => ({
+    ...model,
+    provider: PROVIDER_ID,
+    api: ctx.providerConfig?.api ?? "openai-completions",
+    baseUrl,
+  }));
 }

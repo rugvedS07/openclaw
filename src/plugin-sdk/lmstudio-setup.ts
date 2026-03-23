@@ -4,6 +4,8 @@ export type {
   ProviderAuthMethodNonInteractiveContext,
   ProviderAuthResult,
   ProviderDiscoveryContext,
+  ProviderPrepareDynamicModelContext,
+  ProviderRuntimeModel,
 } from "../plugins/types.js";
 
 export {
@@ -14,5 +16,6 @@ export {
 export {
   configureLmstudioNonInteractive,
   discoverLmstudioProvider,
+  prepareLmstudioDynamicModels,
   promptAndConfigureLmstudioInteractive,
 } from "../commands/lmstudio-setup.js";

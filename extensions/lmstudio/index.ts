@@ -9,9 +9,11 @@ import {
   type ProviderAuthMethodNonInteractiveContext,
   type ProviderAuthResult,
   type ProviderDiscoveryContext,
+  type ProviderRuntimeModel,
 } from "openclaw/plugin-sdk/plugin-entry";
 
 const PROVIDER_ID = "lmstudio";
+const cachedDynamicModels = new Map<string, ProviderRuntimeModel[]>();
 
 /** Lazily loads setup helpers so provider wiring stays lightweight at startup. */
 async function loadProviderSetup() {
@@ -57,6 +59,17 @@ export default definePluginEntry({
           return await providerSetup.discoverLmstudioProvider(ctx);
         },
       },
+      prepareDynamicModel: async (ctx) => {
+        const providerSetup = await loadProviderSetup();
+        cachedDynamicModels.set(
+          ctx.providerConfig?.baseUrl ?? "",
+          await providerSetup.prepareLmstudioDynamicModels(ctx),
+        );
+      },
+      resolveDynamicModel: (ctx) =>
+        cachedDynamicModels
+          .get(ctx.providerConfig?.baseUrl ?? "")
+          ?.find((model) => model.id === ctx.modelId),
       wizard: {
         setup: {
           choiceId: PROVIDER_ID,
