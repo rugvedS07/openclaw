@@ -119,9 +119,6 @@ export async function noteMemorySearchHealth(
       );
       return;
     }
-    if (!providerRequiresApiKey(resolved.provider)) {
-      return;
-    }
     // Remote provider — check for API key
     if (hasRemoteApiKey || (await hasApiKeyForProvider(resolved.provider, cfg, agentDir))) {
       return;
@@ -251,14 +248,6 @@ async function hasApiKeyForProvider(
   } catch {
     return false;
   }
-}
-
-function providerRequiresApiKey(
-  provider: "openai" | "local" | "gemini" | "voyage" | "mistral" | "lmstudio" | "ollama",
-): boolean {
-  // Local LM Studio can legitimately run without auth, so doctor should not
-  // warn purely because it cannot resolve a token from config.
-  return provider !== "lmstudio";
 }
 
 function providerEnvVar(provider: string): string {
