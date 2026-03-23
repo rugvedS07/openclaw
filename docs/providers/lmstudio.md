@@ -30,13 +30,15 @@ lms daemon up
 lms server start --port 1234
 ```
 
+If you are using the app, make sure you have JIT enabled for a smooth experience. Learn more [here](https://lmstudio.ai/docs/developer/core/ttl-and-auto-evict)
+
 3. OpenClaw requires an LM Studio token value. Set `LM_API_TOKEN`:
 
 ```bash
 export LM_API_TOKEN="your-lm-studio-api-token"
 ```
 
-If your LM Studio server does not require authentication, use any non-empty placeholder value:
+If you don't want to use LM Studio with Authentication, use any non-empty placeholder value:
 
 ```bash
 export LM_API_TOKEN="placeholder-key"
@@ -141,4 +143,4 @@ If setup reports HTTP 401, verify your API key:
 
 ### Just-in-time model loading
 
-LM Studio supports just-in-time (JIT) model loading, where models are loaded on first request. If you experience slow first responses, ensure JIT is enabled in LM Studio settings or pre-load your model with `lms load`.
+LM Studio supports just-in-time (JIT) model loading, where models are loaded on first request. Make sure you have this enabled to avoid 'Model not loaded' errors.
