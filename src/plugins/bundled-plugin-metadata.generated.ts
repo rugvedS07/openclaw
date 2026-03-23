@@ -1521,6 +1521,44 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
   },
   {
+    dirName: "lmstudio",
+    idHint: "lmstudio",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    packageName: "@openclaw/lmstudio-provider",
+    packageVersion: "2026.3.14",
+    packageDescription: "OpenClaw LM Studio provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+    },
+    manifest: {
+      id: "lmstudio",
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+      providers: ["lmstudio"],
+      providerAuthEnvVars: {
+        lmstudio: ["LM_API_TOKEN"],
+      },
+      providerAuthChoices: [
+        {
+          provider: "lmstudio",
+          method: "custom",
+          choiceId: "lmstudio",
+          choiceLabel: "LM Studio",
+          choiceHint: "Local/self-hosted LM Studio server",
+          groupId: "lmstudio",
+          groupLabel: "LM Studio",
+          groupHint: "Self-hosted open-weight models",
+        },
+      ],
+    },
+  },
+  {
     dirName: "lobster",
     idHint: "lobster",
     source: {

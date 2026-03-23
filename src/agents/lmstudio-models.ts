@@ -54,12 +54,6 @@ type FetchLmstudioModelsResult = {
   error?: unknown;
 };
 
-const lmstudioWarmupInFlight = new Map<string, Promise<void>>();
-
-export function clearLmstudioWarmupCache(): void {
-  lmstudioWarmupInFlight.clear();
-}
-
 function normalizeReasoningOption(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -470,44 +464,4 @@ export async function ensureLmstudioModelLoaded(params: {
   } finally {
     await release();
   }
-}
-
-/**
- * Triggers model preload in the background.
- * Failures are logged and intentionally do not affect caller flow.
- */
-export function warmupLmstudioModelBestEffort(params: {
-  baseUrl?: string;
-  apiKey?: string;
-  headers?: Record<string, string>;
-  ssrfPolicy?: SsrFPolicy;
-  modelKey: string;
-  timeoutMs?: number;
-}): void {
-  const modelKey = params.modelKey.trim();
-  if (!modelKey) {
-    return;
-  }
-  const baseUrl = resolveLmstudioServerBase(params.baseUrl);
-  // Use a delimiter that cannot collide with URL/model text.
-  const warmupKey = `${baseUrl}\u0000${modelKey}`;
-  if (lmstudioWarmupInFlight.has(warmupKey)) {
-    return;
-  }
-  const warmupPromise = ensureLmstudioModelLoaded({
-    baseUrl,
-    apiKey: params.apiKey,
-    headers: params.headers,
-    ssrfPolicy: params.ssrfPolicy,
-    modelKey,
-    timeoutMs: params.timeoutMs,
-  })
-    .catch((error) => {
-      log.debug(`LM Studio warmup failed for "${modelKey}" at ${baseUrl}: ${String(error)}`);
-      // Warmup is best-effort only and should never block LM Studio usage.
-    })
-    .finally(() => {
-      lmstudioWarmupInFlight.delete(warmupKey);
-    });
-  lmstudioWarmupInFlight.set(warmupKey, warmupPromise);
 }

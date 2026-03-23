@@ -1,14 +1,6 @@
 import type { OpenClawConfig } from "../config/config.js";
 import type { ModelDefinitionConfig } from "../config/types.models.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
-import { KILOCODE_BASE_URL } from "../providers/kilocode-shared.js";
-import {
-  discoverHuggingfaceModels,
-  HUGGINGFACE_BASE_URL,
-  HUGGINGFACE_MODEL_CATALOG,
-  buildHuggingfaceModelDefinition,
-} from "./huggingface-models.js";
-import { discoverKilocodeModels } from "./kilocode-models.js";
 import { discoverLmstudioModels, resolveLmstudioInferenceBase } from "./lmstudio-models.js";
 import {
   enrichOllamaModelsWithContext,

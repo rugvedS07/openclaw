@@ -8,8 +8,6 @@ const resolveCopilotApiTokenMock = vi.hoisted(() => vi.fn());
 const buildOllamaProviderMock = vi.hoisted(() => vi.fn());
 const buildLmstudioProviderMock = vi.hoisted(() => vi.fn());
 const discoverLmstudioProviderMock = vi.hoisted(() => vi.fn());
-const buildLmstudioProviderMock = vi.hoisted(() => vi.fn());
-const discoverLmstudioProviderMock = vi.hoisted(() => vi.fn());
 const buildVllmProviderMock = vi.hoisted(() => vi.fn());
 const buildSglangProviderMock = vi.hoisted(() => vi.fn());
 const ensureAuthProfileStoreMock = vi.hoisted(() => vi.fn());
@@ -150,7 +148,6 @@ describe("provider discovery contract", () => {
       return {
         ...actual,
         buildOllamaProvider: (...args: unknown[]) => buildOllamaProviderMock(...args),
-        buildLmstudioProvider: (...args: unknown[]) => buildLmstudioProviderMock(...args),
         buildLmstudioProvider: (...args: unknown[]) => buildLmstudioProviderMock(...args),
         buildVllmProvider: (...args: unknown[]) => buildVllmProviderMock(...args),
         buildSglangProvider: (...args: unknown[]) => buildSglangProviderMock(...args),
@@ -438,6 +435,12 @@ describe("provider discovery contract", () => {
           apiKey: "LM_API_TOKEN",
           discoveryApiKey: "env-lmstudio-key",
         }),
+        resolveProviderAuth: () => ({
+          apiKey: "LM_API_TOKEN",
+          discoveryApiKey: "env-lmstudio-key",
+          mode: "api_key",
+          source: "env",
+        }),
       }),
     ).resolves.toEqual({
       provider: {
@@ -468,6 +471,12 @@ describe("provider discovery contract", () => {
         resolveProviderApiKey: () => ({
           apiKey: undefined,
           discoveryApiKey: undefined,
+        }),
+        resolveProviderAuth: () => ({
+          apiKey: undefined,
+          discoveryApiKey: undefined,
+          mode: "none",
+          source: "none",
         }),
       }),
     ).resolves.toEqual({
