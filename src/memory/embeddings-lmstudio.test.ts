@@ -284,7 +284,10 @@ describe("embeddings-lmstudio", () => {
       settled = true;
     });
 
-    await Promise.resolve();
+    await vi.waitFor(() => {
+      expect(ensureLmstudioModelLoadedMock).toHaveBeenCalledTimes(1);
+      expect(resolveWarmup).toBeTypeOf("function");
+    });
     expect(settled).toBe(false);
 
     resolveWarmup?.();
