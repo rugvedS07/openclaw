@@ -569,7 +569,7 @@ Then set a model (replace with one of the IDs returned by `/v1/models`):
 
 See [/providers/sglang](/providers/sglang) for details.
 
-### Local proxies (vLLM, LiteLLM, etc.)
+### Local proxies (LM Studio, vLLM, LiteLLM, etc.)
 
 Example (OpenAI‑compatible):
 
@@ -577,15 +577,15 @@ Example (OpenAI‑compatible):
 {
   agents: {
     defaults: {
-      model: { primary: "localproxy/minimax-m2.5-gs32" },
-      models: { "localproxy/minimax-m2.5-gs32": { alias: "Minimax" } },
+      model: { primary: "lmstudio/minimax-m2.5-gs32" },
+      models: { "lmstudio/minimax-m2.5-gs32": { alias: "Minimax" } },
     },
   },
   models: {
     providers: {
-      localproxy: {
+      lmstudio: {
         baseUrl: "http://localhost:1234/v1",
-        apiKey: "LOCAL_PROXY_API_KEY",
+        apiKey: "LM_API_TOKEN",
         api: "openai-completions",
         models: [
           {
