@@ -29,13 +29,6 @@ function resolveRequestedContextLength(model: StreamModel): number | undefined {
   if (contextWindow && contextWindow > 0) {
     return contextWindow;
   }
-  const maxTokens =
-    typeof model.maxTokens === "number" && Number.isFinite(model.maxTokens)
-      ? Math.floor(model.maxTokens)
-      : undefined;
-  if (maxTokens && maxTokens > 0) {
-    return maxTokens;
-  }
   return undefined;
 }
 
