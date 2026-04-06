@@ -20,7 +20,9 @@ vi.mock("./embeddings.js", () => ({
   ) =>
     providerId === "ollama"
       ? DEFAULT_OLLAMA_EMBEDDING_MODEL
-      : fallbackSourceModel,
+      : providerId === "lmstudio"
+        ? DEFAULT_LMSTUDIO_EMBEDDING_MODEL
+        : fallbackSourceModel,
 }));
 
 type EmbeddingProvider = {
