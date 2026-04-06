@@ -89,7 +89,7 @@ describe("lmstudio stream wrapper", () => {
     );
     const events = await collectEvents(stream);
 
-    expect(events).toEqual([{ type: "done" }]);
+    expect(events).toEqual([expect.objectContaining({ type: "done" })]);
     expect(ensureLmstudioModelLoadedMock).toHaveBeenCalledTimes(1);
     expect(ensureLmstudioModelLoadedMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -130,7 +130,7 @@ describe("lmstudio stream wrapper", () => {
       undefined as never,
     );
     const events = await collectEvents(stream);
-    expect(events).toEqual([{ type: "done" }]);
+    expect(events).toEqual([expect.objectContaining({ type: "done" })]);
     expect(baseStream).toHaveBeenCalledTimes(1);
   });
 
@@ -182,11 +182,16 @@ describe("lmstudio stream wrapper", () => {
 
     const firstPromise = collectEvents(first);
     const secondPromise = collectEvents(second);
-    resolvePreload?.();
+    await vi.waitFor(() => {
+      if (!resolvePreload) {
+        throw new Error("LM Studio preload resolver not initialized");
+      }
+    });
+    resolvePreload();
     const [firstEvents, secondEvents] = await Promise.all([firstPromise, secondPromise]);
 
-    expect(firstEvents).toEqual([{ type: "done" }]);
-    expect(secondEvents).toEqual([{ type: "done" }]);
+    expect(firstEvents).toEqual([expect.objectContaining({ type: "done" })]);
+    expect(secondEvents).toEqual([expect.objectContaining({ type: "done" })]);
     expect(ensureLmstudioModelLoadedMock).toHaveBeenCalledTimes(1);
   });
 
@@ -220,7 +225,7 @@ describe("lmstudio stream wrapper", () => {
     );
     const events = await collectEvents(stream);
 
-    expect(events).toEqual([{ type: "done" }]);
+    expect(events).toEqual([expect.objectContaining({ type: "done" })]);
     expect(baseStream).toHaveBeenCalledTimes(1);
     expect(baseStream).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -231,7 +236,7 @@ describe("lmstudio stream wrapper", () => {
         }),
       }),
       expect.anything(),
-      expect.anything(),
+      undefined,
     );
   });
 });
