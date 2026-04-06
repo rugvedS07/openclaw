@@ -134,7 +134,17 @@ export function wrapLmstudioInferencePreload(ctx: ProviderWrapStreamFnContext): 
           `LM Studio inference preload failed for "${modelKey}"; continuing without preload: ${String(error)}`,
         );
       }
-      const stream = underlying(model, context, options);
+      // LM Studio uses OpenAI-compatible streaming usage payloads when requested via
+      // `stream_options.include_usage`. Force this compat flag at call time so usage
+      // reporting remains enabled even when catalog entries omitted compat metadata.
+      const modelWithUsageCompat = {
+        ...model,
+        compat: {
+          ...(model.compat && typeof model.compat === "object" ? model.compat : {}),
+          supportsUsageInStreaming: true,
+        },
+      };
+      const stream = underlying(modelWithUsageCompat, context, options);
       return stream instanceof Promise ? await stream : stream;
     })();
   };

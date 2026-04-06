@@ -189,4 +189,49 @@ describe("lmstudio stream wrapper", () => {
     expect(secondEvents).toEqual([{ type: "done" }]);
     expect(ensureLmstudioModelLoadedMock).toHaveBeenCalledTimes(1);
   });
+
+  it("forces supportsUsageInStreaming compat before calling the underlying stream", async () => {
+    const baseStream = buildDoneStreamFn();
+    const wrapped = wrapLmstudioInferencePreload({
+      provider: "lmstudio",
+      modelId: "qwen3-8b-instruct",
+      config: {
+        models: {
+          providers: {
+            lmstudio: {
+              baseUrl: "http://localhost:1234",
+              models: [],
+            },
+          },
+        },
+      },
+      streamFn: baseStream,
+    } as never);
+
+    const stream = wrapped(
+      {
+        provider: "lmstudio",
+        api: "openai-completions",
+        id: "qwen3-8b-instruct",
+        compat: { supportsDeveloperRole: false },
+      } as never,
+      { messages: [] } as never,
+      undefined as never,
+    );
+    const events = await collectEvents(stream);
+
+    expect(events).toEqual([{ type: "done" }]);
+    expect(baseStream).toHaveBeenCalledTimes(1);
+    expect(baseStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "lmstudio",
+        compat: expect.objectContaining({
+          supportsDeveloperRole: false,
+          supportsUsageInStreaming: true,
+        }),
+      }),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
 });

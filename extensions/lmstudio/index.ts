@@ -33,6 +33,7 @@ function resolveLmstudioAugmentedCatalogEntries(config: OpenClawConfig | undefin
       provider: PROVIDER_ID,
       id: entry.id,
       name: entry.name ?? entry.id,
+      compat: { supportsUsageInStreaming: true },
       contextWindow: entry.contextWindow,
       reasoning: entry.reasoning,
       input: entry.input,
