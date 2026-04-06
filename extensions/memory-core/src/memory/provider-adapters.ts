@@ -1,13 +1,16 @@
 import fsSync from "node:fs";
 import {
   DEFAULT_GEMINI_EMBEDDING_MODEL,
+  DEFAULT_LMSTUDIO_EMBEDDING_MODEL,
   DEFAULT_LOCAL_MODEL,
   DEFAULT_MISTRAL_EMBEDDING_MODEL,
+  DEFAULT_OLLAMA_EMBEDDING_MODEL,
   DEFAULT_OPENAI_EMBEDDING_MODEL,
   DEFAULT_VOYAGE_EMBEDDING_MODEL,
   OPENAI_BATCH_ENDPOINT,
   buildGeminiEmbeddingRequest,
   createGeminiEmbeddingProvider,
+  createLmstudioEmbeddingProvider,
   createLocalEmbeddingProvider,
   createMistralEmbeddingProvider,
   createOpenAiEmbeddingProvider,
@@ -287,6 +290,31 @@ const mistralAdapter: MemoryEmbeddingProviderAdapter = {
   },
 };
 
+const lmstudioAdapter: MemoryEmbeddingProviderAdapter = {
+  id: "lmstudio",
+  defaultModel: DEFAULT_LMSTUDIO_EMBEDDING_MODEL,
+  transport: "remote",
+  create: async (options) => {
+    const { provider, client } = await createLmstudioEmbeddingProvider({
+      ...options,
+      provider: "lmstudio",
+      fallback: "none",
+    });
+    return {
+      provider,
+      runtime: {
+        id: "lmstudio",
+        cacheKeyData: {
+          provider: "lmstudio",
+          baseUrl: client.baseUrl,
+          model: client.model,
+          headers: sanitizeHeaders(client.headers, ["authorization"]),
+        },
+      },
+    };
+  },
+};
+
 const localAdapter: MemoryEmbeddingProviderAdapter = {
   id: "local",
   defaultModel: DEFAULT_LOCAL_MODEL,
@@ -319,6 +347,7 @@ export const builtinMemoryEmbeddingProviderAdapters = [
   geminiAdapter,
   voyageAdapter,
   mistralAdapter,
+  lmstudioAdapter,
 ] as const;
 
 const builtinMemoryEmbeddingProviderAdapterById = new Map(
@@ -380,8 +409,10 @@ export function listBuiltinAutoSelectMemoryEmbeddingProviderDoctorMetadata(): Ar
 
 export {
   DEFAULT_GEMINI_EMBEDDING_MODEL,
+  DEFAULT_LMSTUDIO_EMBEDDING_MODEL,
   DEFAULT_LOCAL_MODEL,
   DEFAULT_MISTRAL_EMBEDDING_MODEL,
+  DEFAULT_OLLAMA_EMBEDDING_MODEL,
   DEFAULT_OPENAI_EMBEDDING_MODEL,
   DEFAULT_VOYAGE_EMBEDDING_MODEL,
   canAutoSelectLocal,

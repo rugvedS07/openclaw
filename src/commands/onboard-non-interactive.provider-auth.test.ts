@@ -1032,7 +1032,12 @@ describe("onboard (non-interactive): provider auth", () => {
 
       expect(cfg.auth?.profiles?.["xai:default"]?.provider).toBe("xai");
       expect(cfg.auth?.profiles?.["xai:default"]?.mode).toBe("api_key");
-      await expectApiKeyProfile({ profileId: "xai:default", provider: "xai", key: "xai-test-key" });
+      expect(cfg.agents?.defaults?.model?.primary).toBe("xai/grok-4");
+      await expectApiKeyProfile({
+        profileId: "xai:default",
+        provider: "xai",
+        key: "xai-test-key",
+      });
     });
   });
 
@@ -1305,7 +1310,209 @@ describe("onboard (non-interactive): provider auth", () => {
     });
   });
 
-  it("stores LiteLLM API key in the default auth profile", async () => {
+  it("configures LM Studio via the provider plugin in non-interactive mode", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | RequestInfo | Request) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : "url" in input
+              ? String(input.url)
+              : String(input);
+      if (!url.endsWith("/api/v1/models")) {
+        throw new Error(`Unexpected fetch URL: ${url}`);
+      }
+      return new Response(
+        JSON.stringify({
+          models: [
+            {
+              type: "llm",
+              key: "qwen3-8b-instruct",
+              display_name: "Qwen3 8B",
+            },
+            {
+              type: "llm",
+              key: "phi-4",
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }) as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await withOnboardEnv("openclaw-onboard-lmstudio-non-interactive-", async (env) => {
+        const cfg = await runOnboardingAndReadConfig(env, {
+          authChoice: "lmstudio",
+          customBaseUrl: "http://localhost:1234/v1",
+          lmstudioApiKey: "lmstudio-test-key", // pragma: allowlist secret
+          customModelId: "qwen3-8b-instruct",
+        });
+
+        expect(cfg.auth?.profiles?.["lmstudio:default"]?.provider).toBe("lmstudio");
+        expect(cfg.auth?.profiles?.["lmstudio:default"]?.mode).toBe("api_key");
+        expect(cfg.models?.providers?.lmstudio).toEqual({
+          baseUrl: "http://localhost:1234/v1",
+          api: "openai-completions",
+          auth: "api-key",
+          apiKey: "LM_API_TOKEN",
+          models: [
+            expect.objectContaining({
+              id: "qwen3-8b-instruct",
+            }),
+            expect.objectContaining({
+              id: "phi-4",
+            }),
+          ],
+        });
+        expect(cfg.agents?.defaults?.model?.primary).toBe("lmstudio/qwen3-8b-instruct");
+        await expectApiKeyProfile({
+          profileId: "lmstudio:default",
+          provider: "lmstudio",
+          key: "lmstudio-test-key",
+        });
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("auto-selects a discovered LM Studio model in non-interactive mode", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | RequestInfo | Request) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : "url" in input
+              ? String(input.url)
+              : String(input);
+      if (!url.endsWith("/api/v1/models")) {
+        throw new Error(`Unexpected fetch URL: ${url}`);
+      }
+      return new Response(
+        JSON.stringify({
+          models: [
+            {
+              type: "llm",
+              key: "phi-4",
+            },
+            {
+              type: "llm",
+              key: "qwen3-8b-instruct",
+              display_name: "Qwen3 8B",
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }) as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await withOnboardEnv("openclaw-onboard-lmstudio-auto-model-non-interactive-", async (env) => {
+        const cfg = await runOnboardingAndReadConfig(env, {
+          authChoice: "lmstudio",
+          customBaseUrl: "http://localhost:1234/v1",
+          lmstudioApiKey: "lmstudio-test-key", // pragma: allowlist secret
+        });
+
+        expect(cfg.auth?.profiles?.["lmstudio:default"]?.provider).toBe("lmstudio");
+        expect(cfg.auth?.profiles?.["lmstudio:default"]?.mode).toBe("api_key");
+        expect(cfg.models?.providers?.lmstudio).toEqual({
+          baseUrl: "http://localhost:1234/v1",
+          api: "openai-completions",
+          auth: "api-key",
+          apiKey: "LM_API_TOKEN",
+          models: [
+            expect.objectContaining({
+              id: "phi-4",
+            }),
+            expect.objectContaining({
+              id: "qwen3-8b-instruct",
+            }),
+          ],
+        });
+        expect(cfg.agents?.defaults?.model?.primary).toBe("lmstudio/phi-4");
+        await expectApiKeyProfile({
+          profileId: "lmstudio:default",
+          provider: "lmstudio",
+          key: "lmstudio-test-key",
+        });
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("synthesizes LM Studio auth in non-interactive setup when API key is missing", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | RequestInfo | Request) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : "url" in input
+              ? String(input.url)
+              : String(input);
+      if (!url.endsWith("/api/v1/models")) {
+        throw new Error(`Unexpected fetch URL: ${url}`);
+      }
+      return new Response(
+        JSON.stringify({
+          models: [
+            {
+              type: "llm",
+              key: "qwen3-8b-instruct",
+              display_name: "Qwen3 8B",
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }) as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await withOnboardEnv("openclaw-onboard-lmstudio-no-key-non-interactive-", async (env) => {
+        const cfg = await runOnboardingAndReadConfig(env, {
+          authChoice: "lmstudio",
+          customBaseUrl: "http://localhost:1234/v1",
+          customModelId: "qwen3-8b-instruct",
+        });
+
+        expect(cfg.models?.providers?.lmstudio).toEqual({
+          baseUrl: "http://localhost:1234/v1",
+          api: "openai-completions",
+          auth: "api-key",
+          apiKey: "lmstudio-local",
+          models: [
+            expect.objectContaining({
+              id: "qwen3-8b-instruct",
+            }),
+          ],
+        });
+        expect(cfg.agents?.defaults?.model?.primary).toBe("lmstudio/qwen3-8b-instruct");
+        await expectApiKeyProfile({
+          profileId: "lmstudio:default",
+          provider: "lmstudio",
+          key: "lmstudio-local",
+        });
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("stores LiteLLM API key and sets default model", async () => {
     await withOnboardEnv("openclaw-onboard-litellm-", async (env) => {
       const cfg = await runOnboardingAndReadConfig(env, {
         authChoice: "litellm-api-key",
