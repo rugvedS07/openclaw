@@ -99,6 +99,23 @@ function omitAuthorizationHeader(
   return next;
 }
 
+function markAuthorizationHeaderRemovalForPatch(
+  headers: ModelProviderConfig["headers"] | undefined,
+): Record<string, string | undefined> | undefined {
+  if (!headers) {
+    return undefined;
+  }
+  let next: Record<string, string | undefined> | undefined;
+  for (const [headerName, headerValue] of Object.entries(headers)) {
+    if (headerName.trim().toLowerCase() === "authorization") {
+      (next ??= {})[headerName] = undefined;
+      continue;
+    }
+    (next ??= {})[headerName] = headerValue;
+  }
+  return next;
+}
+
 function resolveLmstudioModelAdvertisedContextLimit(entry: LmstudioModelWire): number | undefined {
   const raw = entry.max_context_length;
   if (raw === undefined || !Number.isFinite(raw) || raw <= 0) {
@@ -455,6 +472,7 @@ export async function promptAndConfigureLmstudioInteractive(params: {
   // A fresh interactive setup run is explicit API-key intent, so drop any stale
   // Authorization header from saved config while preserving other custom headers.
   const persistedHeaders = omitAuthorizationHeader(existingProvider?.headers);
+  const patchHeaders = markAuthorizationHeaderRemovalForPatch(existingProvider?.headers);
   const resolvedHeaders = await resolveLmstudioProviderHeaders({
     config: params.config,
     env: process.env,
@@ -513,7 +531,7 @@ export async function promptAndConfigureLmstudioInteractive(params: {
             api: existingProvider?.api ?? "openai-completions",
             auth: "api-key",
             apiKey: persistedApiKey,
-            headers: persistedHeaders,
+            headers: patchHeaders,
             models: discoveredModels,
           },
         },

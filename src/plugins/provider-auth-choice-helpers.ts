@@ -53,6 +53,10 @@ export function mergeConfigPatch<T>(base: T, patch: unknown): T {
 
   const next: Record<string, unknown> = { ...base };
   for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) {
+      delete next[key];
+      continue;
+    }
     const existing = next[key];
     if (isPlainRecord(existing) && isPlainRecord(value)) {
       next[key] = mergeConfigPatch(existing, value);
