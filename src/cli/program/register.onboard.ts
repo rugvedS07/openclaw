@@ -147,10 +147,16 @@ export function registerOnboardCommand(program: Command) {
       });
       const gatewayPort =
         typeof opts.gatewayPort === "string" ? Number.parseInt(opts.gatewayPort, 10) : undefined;
-      const customContextWindow =
-        typeof opts.customContextWindow === "string"
-          ? Number.parseInt(opts.customContextWindow, 10)
-          : undefined;
+      const customContextWindowRaw = opts.customContextWindow;
+      let customContextWindow: number | undefined;
+      if (typeof customContextWindowRaw === "string") {
+        if (!/^\d+$/.test(customContextWindowRaw)) {
+          throw new Error(
+            `--custom-context-window must be a positive integer (tokens), got: ${customContextWindowRaw}`,
+          );
+        }
+        customContextWindow = Number.parseInt(customContextWindowRaw, 10);
+      }
       const providerAuthOptionValues = pickOnboardProviderAuthOptionValues(
         opts as Record<string, unknown>,
       );
