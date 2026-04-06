@@ -2,16 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/memory-core-host-engine-foundation";
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MemoryIndexManager } from "./index.js";
 type MemoryIndexModule = typeof import("./index.js");
 type MemoryEmbeddingProvidersModule =
@@ -46,8 +37,7 @@ const { createEmbeddingProviderMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("./embeddings.js", async () => {
-  const actual =
-    await vi.importActual<typeof import("./embeddings.js")>("./embeddings.js");
+  const actual = await vi.importActual<typeof import("./embeddings.js")>("./embeddings.js");
   return {
     ...actual,
     createEmbeddingProvider: createEmbeddingProviderMock,
@@ -64,9 +54,7 @@ vi.mock("./sqlite-vec.js", () => ({
 let getMemorySearchManager: MemoryIndexModule["getMemorySearchManager"];
 let closeAllMemorySearchManagers: MemoryIndexModule["closeAllMemorySearchManagers"];
 
-async function ensureProviderInitialized(
-  manager: MemoryIndexManager,
-): Promise<void> {
+async function ensureProviderInitialized(manager: MemoryIndexManager): Promise<void> {
   await (
     manager as unknown as {
       ensureProviderInitialized: () => Promise<void>;
@@ -95,10 +83,7 @@ function buildConfig(params: {
         workspace: params.workspaceDir,
         memorySearch: {
           provider: params.provider,
-          model:
-            params.provider === "mistral"
-              ? "mistral/mistral-embed"
-              : "text-embedding-3-small",
+          model: params.provider === "mistral" ? "mistral/mistral-embed" : "text-embedding-3-small",
           fallback: params.fallback ?? "none",
           store: { path: params.indexPath, vector: { enabled: false } },
           sync: { watch: false, onSessionStart: false, onSearch: false },
@@ -119,9 +104,7 @@ describe("memory manager mistral provider wiring", () => {
 
   beforeAll(async () => {
     vi.resetModules();
-    ({ getMemorySearchManager, closeAllMemorySearchManagers } = await import(
-      "./index.js"
-    ));
+    ({ getMemorySearchManager, closeAllMemorySearchManagers } = await import("./index.js"));
     ({
       clearMemoryEmbeddingProviders: clearRegistry,
       registerMemoryEmbeddingProvider: registerAdapter,
@@ -156,9 +139,7 @@ describe("memory manager mistral provider wiring", () => {
       transport: "remote",
       create: async () => ({ provider: null }),
     });
-    workspaceDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "openclaw-memory-mistral-"),
-    );
+    workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-memory-mistral-"));
     indexPath = path.join(workspaceDir, "index.sqlite");
     await fs.mkdir(path.join(workspaceDir, "memory"), { recursive: true });
     await fs.writeFile(path.join(workspaceDir, "MEMORY.md"), "test");
@@ -197,9 +178,7 @@ describe("memory manager mistral provider wiring", () => {
     const cfg = buildConfig({ workspaceDir, indexPath, provider: "mistral" });
     const result = await getMemorySearchManager({ cfg, agentId: "main" });
     if (!result.manager) {
-      throw new Error(
-        `manager missing: ${result.error ?? "no error provided"}`,
-      );
+      throw new Error(`manager missing: ${result.error ?? "no error provided"}`);
     }
     manager = result.manager as unknown as MemoryIndexManager;
     await ensureProviderInitialized(manager);
@@ -240,9 +219,7 @@ describe("memory manager mistral provider wiring", () => {
     });
     const result = await getMemorySearchManager({ cfg, agentId: "main" });
     if (!result.manager) {
-      throw new Error(
-        `manager missing: ${result.error ?? "no error provided"}`,
-      );
+      throw new Error(`manager missing: ${result.error ?? "no error provided"}`);
     }
     manager = result.manager as unknown as MemoryIndexManager;
     await ensureProviderInitialized(manager);
@@ -290,9 +267,7 @@ describe("memory manager mistral provider wiring", () => {
     });
     const result = await getMemorySearchManager({ cfg, agentId: "main" });
     if (!result.manager) {
-      throw new Error(
-        `manager missing: ${result.error ?? "no error provided"}`,
-      );
+      throw new Error(`manager missing: ${result.error ?? "no error provided"}`);
     }
     manager = result.manager as unknown as MemoryIndexManager;
     await ensureProviderInitialized(manager);
@@ -304,9 +279,7 @@ describe("memory manager mistral provider wiring", () => {
 
     await internal.ensureProviderInitialized();
     expect(internal.providerRuntime?.id).toBe("openai");
-    const activated = await internal.activateFallbackProvider(
-      "forced ollama fallback",
-    );
+    const activated = await internal.activateFallbackProvider("forced ollama fallback");
     expect(activated).toBe(true);
     expect(internal.providerRuntime).toBe(ollamaRuntime);
 
@@ -348,9 +321,7 @@ describe("memory manager mistral provider wiring", () => {
     });
     const result = await getMemorySearchManager({ cfg, agentId: "main" });
     if (!result.manager) {
-      throw new Error(
-        `manager missing: ${result.error ?? "no error provided"}`,
-      );
+      throw new Error(`manager missing: ${result.error ?? "no error provided"}`);
     }
     manager = result.manager as unknown as MemoryIndexManager;
     await ensureProviderInitialized(manager);
@@ -362,9 +333,7 @@ describe("memory manager mistral provider wiring", () => {
 
     await internal.ensureProviderInitialized();
     expect(internal.providerRuntime?.id).toBe("openai");
-    const activated = await internal.activateFallbackProvider(
-      "forced lmstudio fallback",
-    );
+    const activated = await internal.activateFallbackProvider("forced lmstudio fallback");
     expect(activated).toBe(true);
     expect(internal.providerRuntime).toBe(lmstudioRuntime);
 
