@@ -670,7 +670,7 @@ Plugin-owned capability split:
 LM Studio ships as a bundled provider plugin which uses the native API:
 
 - Provider: `lmstudio`
-- Auth: `LM_API_TOKEN` (if auth is not toggled on within LM Studio, any placeholder string is acceptable)
+- Auth: `LM_API_TOKEN`
 - Default inference base URL: `http://localhost:1234/v1`
 
 Then set a model (replace with one of the IDs returned by `http://localhost:1234/api/v1/models`):
