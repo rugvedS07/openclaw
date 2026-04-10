@@ -678,11 +678,20 @@ export async function discoverLmstudioProvider(ctx: ProviderCatalogContext): Pro
     env: ctx.env,
   });
   const resolvedDiscoveryApiKey = discoveryApiKey ?? configuredDiscoveryApiKey;
-  const resolvedHeaders = await resolveLmstudioProviderHeaders({
-    config: ctx.config,
-    env: ctx.env,
-    headers: explicit?.headers,
-  });
+  let resolvedHeaders: Record<string, string> | undefined;
+  try {
+    resolvedHeaders = await resolveLmstudioProviderHeaders({
+      config: ctx.config,
+      env: ctx.env,
+      headers: explicit?.headers,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("models.providers.lmstudio.headers.")) {
+      return null;
+    }
+    throw error;
+  }
   // CLI/runtime-resolved key takes precedence over static provider config key.
   const resolvedApiKey = apiKey ?? explicit?.apiKey;
   if (hasExplicitModels && explicitWithoutHeaders) {

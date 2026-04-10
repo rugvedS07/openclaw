@@ -821,6 +821,35 @@ describe("lmstudio setup", () => {
     expect(result?.provider.models?.map((model) => model.id)).toEqual(["qwen3-8b-instruct"]);
   });
 
+  it("discoverLmstudioProvider returns null for unresolved header refs", async () => {
+    const result = await discoverLmstudioProvider(
+      buildDiscoveryContext({
+        config: {
+          models: {
+            providers: {
+              lmstudio: {
+                baseUrl: "http://localhost:1234/v1",
+                api: "openai-completions",
+                headers: {
+                  "X-Proxy-Auth": {
+                    source: "env",
+                    provider: "default",
+                    id: "LMSTUDIO_PROXY_TOKEN",
+                  },
+                },
+                models: [],
+              },
+            },
+          },
+        } as OpenClawConfig,
+        env: {},
+      }),
+    );
+
+    expect(result).toBeNull();
+    expect(discoverLmstudioModelsMock).not.toHaveBeenCalled();
+  });
+
   it("discoverLmstudioProvider uses configured direct apiKey for discovery", async () => {
     discoverLmstudioModelsMock.mockResolvedValueOnce([
       createModel("qwen3-8b-instruct", "Qwen3 8B"),
