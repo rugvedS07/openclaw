@@ -792,6 +792,67 @@ describe("lmstudio setup", () => {
     expect(result?.provider.models?.map((model) => model.id)).toEqual(["qwen3-8b-instruct"]);
   });
 
+  it("discoverLmstudioProvider uses configured direct apiKey for discovery", async () => {
+    discoverLmstudioModelsMock.mockResolvedValueOnce([
+      createModel("qwen3-8b-instruct", "Qwen3 8B"),
+    ]);
+
+    await discoverLmstudioProvider(
+      buildDiscoveryContext({
+        config: {
+          models: {
+            providers: {
+              lmstudio: {
+                baseUrl: "http://localhost:1234/v1",
+                api: "openai-completions",
+                apiKey: "configured-direct-key",
+                models: [],
+              },
+            },
+          },
+        } as OpenClawConfig,
+      }),
+    );
+
+    expect(discoverLmstudioModelsMock).toHaveBeenCalledWith({
+      baseUrl: "http://localhost:1234/v1",
+      apiKey: "configured-direct-key",
+      headers: undefined,
+      quiet: false,
+    });
+  });
+
+  it("discoverLmstudioProvider prefers resolved discoveryApiKey over configured apiKey", async () => {
+    discoverLmstudioModelsMock.mockResolvedValueOnce([
+      createModel("qwen3-8b-instruct", "Qwen3 8B"),
+    ]);
+
+    await discoverLmstudioProvider(
+      buildDiscoveryContext({
+        discoveryApiKey: "resolved-discovery-key",
+        config: {
+          models: {
+            providers: {
+              lmstudio: {
+                baseUrl: "http://localhost:1234/v1",
+                api: "openai-completions",
+                apiKey: "configured-direct-key",
+                models: [],
+              },
+            },
+          },
+        } as OpenClawConfig,
+      }),
+    );
+
+    expect(discoverLmstudioModelsMock).toHaveBeenCalledWith({
+      baseUrl: "http://localhost:1234/v1",
+      apiKey: "resolved-discovery-key",
+      headers: undefined,
+      quiet: false,
+    });
+  });
+
   it("discoverLmstudioProvider rewrites stale api-key auth without a persisted key", async () => {
     const result = await discoverLmstudioProvider(
       buildDiscoveryContext({

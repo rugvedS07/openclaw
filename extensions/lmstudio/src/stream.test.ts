@@ -11,8 +11,8 @@ const resolveLmstudioRuntimeApiKeyMock = vi.hoisted(() =>
   vi.fn(async (_params?: unknown) => undefined),
 );
 
-vi.mock("./models.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./models.js")>();
+vi.mock("./models.fetch.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./models.fetch.js")>();
   return {
     ...actual,
     ensureLmstudioModelLoaded: (params: unknown) => ensureLmstudioModelLoadedMock(params),

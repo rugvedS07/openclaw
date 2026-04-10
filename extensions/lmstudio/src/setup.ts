@@ -1,4 +1,3 @@
-import { resolveConfiguredSecretInputString } from "openclaw/plugin-sdk/config-runtime";
 import {
   buildApiKeyCredential,
   ensureApiKeyFromEnvOrPrompt,
@@ -20,7 +19,6 @@ import {
   type ProviderPrepareDynamicModelContext,
   type ProviderRuntimeModel,
 } from "openclaw/plugin-sdk/provider-setup";
-import { isSecretRef } from "openclaw/plugin-sdk/secret-input";
 import { WizardCancelledError, type WizardPrompter } from "openclaw/plugin-sdk/setup";
 import {
   LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
@@ -43,7 +41,11 @@ import {
   resolveLmstudioProviderAuthMode,
   shouldUseLmstudioApiKeyPlaceholder,
 } from "./provider-auth.js";
-import { resolveLmstudioProviderHeaders, resolveLmstudioRequestContext } from "./runtime.js";
+import {
+  resolveLmstudioConfiguredApiKey,
+  resolveLmstudioProviderHeaders,
+  resolveLmstudioRequestContext,
+} from "./runtime.js";
 
 type ProviderPromptText = (params: {
   message: string;
@@ -197,6 +199,9 @@ function resolvePersistedLmstudioApiKey(params: {
     if (params.preferFallbackApiKey && params.fallbackApiKey !== undefined) {
       return params.fallbackApiKey;
     }
+    if (params.currentApiKey === LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER) {
+      return params.currentApiKey;
+    }
     if (resolveLmstudioProviderAuthMode(params.currentApiKey)) {
       return params.currentApiKey;
     }
@@ -314,24 +319,6 @@ async function discoverLmstudioSetupModels(params: {
       defaultModelId,
     },
   };
-}
-
-async function resolveExplicitLmstudioSecretRefDiscoveryApiKey(params: {
-  config: OpenClawConfig;
-  env: NodeJS.ProcessEnv;
-  apiKey: ModelProviderConfig["apiKey"] | undefined;
-}): Promise<string | undefined> {
-  if (!isSecretRef(params.apiKey)) {
-    return undefined;
-  }
-  const resolved = await resolveConfiguredSecretInputString({
-    config: params.config,
-    env: params.env,
-    value: params.apiKey,
-    path: "models.providers.lmstudio.apiKey",
-    unresolvedReasonStyle: "detailed",
-  });
-  return normalizeOptionalSecretInput(resolved.value);
 }
 
 /** Interactive LM Studio setup with connectivity and model-availability checks. */
@@ -636,12 +623,16 @@ export async function discoverLmstudioProvider(ctx: ProviderCatalogContext): Pro
   }
   const hasExplicitModels = Array.isArray(explicit?.models) && explicit.models.length > 0;
   const { apiKey, discoveryApiKey } = ctx.resolveProviderApiKey(PROVIDER_ID);
-  const explicitSecretRefDiscoveryApiKey = await resolveExplicitLmstudioSecretRefDiscoveryApiKey({
+  const configuredDiscoveryApiKey = await resolveLmstudioConfiguredApiKey({
     config: ctx.config,
     env: ctx.env,
-    apiKey: explicit?.apiKey,
   });
-  const resolvedDiscoveryApiKey = discoveryApiKey ?? explicitSecretRefDiscoveryApiKey;
+  const keylessDiscoveryApiKey =
+    explicit?.apiKey === LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER
+      ? LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER
+      : undefined;
+  const resolvedDiscoveryApiKey =
+    discoveryApiKey ?? configuredDiscoveryApiKey ?? keylessDiscoveryApiKey;
   const resolvedHeaders = await resolveLmstudioProviderHeaders({
     config: ctx.config,
     env: ctx.env,
@@ -673,7 +664,7 @@ export async function discoverLmstudioProvider(ctx: ProviderCatalogContext): Pro
   }
   const provider = await discoverLmstudioProviderCatalog({
     baseUrl: explicit?.baseUrl,
-    // Prefer dedicated discovery key and then explicit SecretRef-backed provider keys.
+    // Prefer resolved discovery auth, then configured provider auth, then explicit keyless mode.
     apiKey: resolvedDiscoveryApiKey,
     headers: resolvedHeaders,
     quiet: !apiKey && !explicit && !resolvedDiscoveryApiKey,

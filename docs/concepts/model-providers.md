@@ -785,7 +785,7 @@ Example (OpenAI‑compatible):
     providers: {
       lmstudio: {
         baseUrl: "http://localhost:1234/v1",
-        apiKey: "LM_API_TOKEN",
+        apiKey: "${LM_API_TOKEN}",
         api: "openai-completions",
         models: [
           {
