@@ -705,9 +705,9 @@ export async function discoverLmstudioProvider(ctx: ProviderCatalogContext): Pro
 } | null> {
   const explicit = ctx.config.models?.providers?.[PROVIDER_ID];
   const explicitAuth = explicit?.auth;
-  let explicitWithoutHeaders: Omit<ModelProviderConfig, "headers" | "auth"> | undefined;
+  let explicitWithoutHeaders: Omit<ModelProviderConfig, "headers" | "auth" | "apiKey"> | undefined;
   if (explicit) {
-    const { headers: _headers, auth: _auth, ...rest } = explicit;
+    const { headers: _headers, auth: _auth, apiKey: _apiKey, ...rest } = explicit;
     explicitWithoutHeaders = rest;
   }
   const hasExplicitModels = Array.isArray(explicit?.models) && explicit.models.length > 0;

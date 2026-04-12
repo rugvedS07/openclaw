@@ -744,6 +744,7 @@ describe("lmstudio setup", () => {
     {
       name: "does not inject api-key marker when Authorization header is configured",
       providerPatch: {
+        apiKey: "stale-legacy-key",
         headers: {
           Authorization: "Bearer custom-token",
         },
@@ -987,6 +988,39 @@ describe("lmstudio setup", () => {
       apiKey: LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
       models: [expect.objectContaining({ id: "qwen3-8b-instruct" })],
     });
+  });
+
+  it("discoverLmstudioProvider drops stale apiKey when Authorization header auth is configured", async () => {
+    const result = await discoverLmstudioProvider(
+      buildDiscoveryContext({
+        config: {
+          models: {
+            providers: {
+              lmstudio: {
+                baseUrl: "http://localhost:1234/v1",
+                api: "openai-completions",
+                apiKey: "stale-legacy-key",
+                headers: {
+                  Authorization: "Bearer custom-token",
+                },
+                models: [],
+              },
+            },
+          },
+        } as OpenClawConfig,
+      }),
+    );
+
+    expect(result?.provider).toMatchObject({
+      baseUrl: "http://localhost:1234/v1",
+      api: "openai-completions",
+      headers: {
+        Authorization: "Bearer custom-token",
+      },
+      models: [expect.objectContaining({ id: "qwen3-8b-instruct" })],
+    });
+    expect(result?.provider.apiKey).toBeUndefined();
+    expect(result?.provider.auth).toBeUndefined();
   });
 
   it("discoverLmstudioProvider uses quiet mode and returns null when unconfigured", async () => {
