@@ -6,7 +6,7 @@ import type { SsrFPolicy } from "openclaw/plugin-sdk/ssrf-runtime";
 import { LMSTUDIO_PROVIDER_ID } from "./defaults.js";
 import { ensureLmstudioModelLoaded } from "./models.fetch.js";
 import { resolveLmstudioInferenceBase } from "./models.js";
-import { resolveLmstudioRequestContext } from "./runtime.js";
+import { resolveLmstudioProviderHeaders, resolveLmstudioRuntimeApiKey } from "./runtime.js";
 
 const log = createSubsystemLogger("extensions/lmstudio/stream");
 
@@ -83,19 +83,27 @@ async function ensureLmstudioModelLoadedBestEffort(params: {
   modelHeaders?: Record<string, string>;
 }): Promise<void> {
   const providerConfig = params.ctx.config?.models?.providers?.[LMSTUDIO_PROVIDER_ID];
-  const { headers, apiKey: configuredApiKey } = await resolveLmstudioRequestContext({
-    config: params.ctx.config,
-    agentDir: params.ctx.agentDir,
-    providerHeaders: { ...providerConfig?.headers, ...params.modelHeaders },
-  });
+  const providerHeaders = { ...providerConfig?.headers, ...params.modelHeaders };
   const runtimeApiKey =
     typeof params.options?.apiKey === "string" && params.options.apiKey.trim().length > 0
-      ? params.options.apiKey
-      : configuredApiKey;
+      ? params.options.apiKey.trim()
+      : undefined;
+  const headers = await resolveLmstudioProviderHeaders({
+    config: params.ctx.config,
+    headers: providerHeaders,
+  });
+  const configuredApiKey =
+    runtimeApiKey !== undefined
+      ? undefined
+      : await resolveLmstudioRuntimeApiKey({
+          config: params.ctx.config,
+          agentDir: params.ctx.agentDir,
+          headers: providerHeaders,
+        });
 
   await ensureLmstudioModelLoaded({
     baseUrl: params.baseUrl,
-    apiKey: runtimeApiKey,
+    apiKey: runtimeApiKey ?? configuredApiKey,
     headers,
     ssrfPolicy: buildLmstudioPreloadSsrFPolicy(params.baseUrl),
     modelKey: params.modelKey,
