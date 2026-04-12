@@ -724,7 +724,6 @@ export async function discoverLmstudioProvider(ctx: ProviderCatalogContext): Pro
     }
     throw error;
   }
-  const resolvedDiscoveryApiKey = discoveryApiKey ?? configuredDiscoveryApiKey;
   let resolvedHeaders: Record<string, string> | undefined;
   try {
     resolvedHeaders = await resolveLmstudioProviderHeaders({
@@ -738,6 +737,10 @@ export async function discoverLmstudioProvider(ctx: ProviderCatalogContext): Pro
     }
     throw error;
   }
+  const hasAuthorizationHeader = hasLmstudioAuthorizationHeader(resolvedHeaders);
+  const resolvedDiscoveryApiKey = hasAuthorizationHeader
+    ? undefined
+    : (discoveryApiKey ?? configuredDiscoveryApiKey);
   // CLI/runtime-resolved key takes precedence over static provider config key.
   const resolvedApiKey = apiKey ?? explicit?.apiKey;
   if (hasExplicitModels && explicitWithoutHeaders) {
@@ -746,7 +749,7 @@ export async function discoverLmstudioProvider(ctx: ProviderCatalogContext): Pro
       explicitAuth,
       fallbackApiKey: LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
       hasModels: hasExplicitModels,
-      hasAuthorizationHeader: hasLmstudioAuthorizationHeader(resolvedHeaders),
+      hasAuthorizationHeader,
     });
     const persistedAuth = resolveLmstudioProviderAuthMode(persistedApiKey);
     return {
@@ -781,7 +784,7 @@ export async function discoverLmstudioProvider(ctx: ProviderCatalogContext): Pro
     explicitAuth,
     fallbackApiKey: LMSTUDIO_DEFAULT_API_KEY_ENV_VAR,
     hasModels: models.length > 0,
-    hasAuthorizationHeader: hasLmstudioAuthorizationHeader(resolvedHeaders),
+    hasAuthorizationHeader,
   });
   const persistedAuth = resolveLmstudioProviderAuthMode(persistedApiKey);
   return {

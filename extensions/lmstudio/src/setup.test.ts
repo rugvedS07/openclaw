@@ -966,6 +966,42 @@ describe("lmstudio setup", () => {
     });
   });
 
+  it("discoverLmstudioProvider suppresses stale discovery apiKey when Authorization header auth is configured", async () => {
+    discoverLmstudioModelsMock.mockResolvedValueOnce([
+      createModel("qwen3-8b-instruct", "Qwen3 8B"),
+    ]);
+
+    await discoverLmstudioProvider(
+      buildDiscoveryContext({
+        discoveryApiKey: "resolved-stale-key",
+        config: {
+          models: {
+            providers: {
+              lmstudio: {
+                baseUrl: "http://localhost:1234/v1",
+                api: "openai-completions",
+                apiKey: "configured-direct-key",
+                headers: {
+                  Authorization: "Bearer custom-token",
+                },
+                models: [],
+              },
+            },
+          },
+        } as OpenClawConfig,
+      }),
+    );
+
+    expect(discoverLmstudioModelsMock).toHaveBeenCalledWith({
+      baseUrl: "http://localhost:1234/v1",
+      apiKey: "",
+      headers: {
+        Authorization: "Bearer custom-token",
+      },
+      quiet: false,
+    });
+  });
+
   it("discoverLmstudioProvider rewrites stale api-key auth without a persisted key", async () => {
     const result = await discoverLmstudioProvider(
       buildDiscoveryContext({
